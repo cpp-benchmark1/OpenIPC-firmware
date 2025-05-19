@@ -15,6 +15,8 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
+#include "cwe78_example1.h"
+#include "cwe78_example2.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
@@ -75,7 +77,7 @@ void send_netip_broadcast() {
   memset(sa.sin_zero, '\0', sizeof sa.sin_zero);
 
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = 0xffffffff;
+  sa.sin_addr.s_addr = INADDR_BROADCAST;
   sa.sin_port = htons(SERVERPORT);
 
   int rcvbts;
@@ -107,7 +109,7 @@ int scan() {
   struct sockaddr_in name;
   name.sin_family = AF_INET;
   name.sin_port = htons(SERVERPORT);
-  name.sin_addr.s_addr = htonl(INADDR_ANY);
+  name.sin_addr.s_addr = INADDR_ANY;
   if (bind(bsock, (struct sockaddr *)&name, sizeof(name)) < 0) {
     perror("bind");
     exit(EXIT_FAILURE);
@@ -134,16 +136,18 @@ int scan() {
   uint32_t *seen_vec = malloc(seen_cap * sizeof(*seen_vec));
 
   while (1) {
-	current = time(NULL);
+    current = time(NULL);
 
-	if ((scansec > 0) && (current-start > scansec)) {
-	  exit(EXIT_SUCCESS);
-	}
+    if ((scansec > 0) && (current-start > scansec)) {
+      exit(EXIT_SUCCESS);
+    }
 
     char buf[1024];
     struct sockaddr_in their_addr;
     socklen_t addr_len = sizeof their_addr;
     int rcvbts;
+    
+    // SOURCE: User-controlled input from recvfrom
     if ((rcvbts = recvfrom(bsock, buf, sizeof buf - 1, 0,
                            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
@@ -154,21 +158,39 @@ int scan() {
 
     buf[rcvbts] = '\0';
 
+    // Extract payload from JSON
     cJSON *json = cJSON_Parse(buf + 20);
+    if (json) {
+        const cJSON *netcommon = cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
+        if (netcommon) {
+            const char *username = get_json_strval(netcommon, "UserName", "");
+            const char *password = get_json_strval(netcommon, "PassWord", "");
+            
+            // Pass extracted data directly to vulnerable functions
+            if (strlen(username) > 0) {
+                process_camera_config(username);  // First CWE-78 example
+            }
+            if (strlen(password) > 0) {
+                // Create a JSON string for the second example
+                char json_str[1024];
+                snprintf(json_str, sizeof(json_str), 
+                    "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
+                    password);
+                process_firmware_update(json_str);  // Second CWE-78 example
+            }
+        }
+        cJSON_Delete(json);
+    }
+
+    // Continue with normal processing
+    json = cJSON_Parse(buf + 20);
     if (!json) {
-      const char *error_ptr = cJSON_GetErrorPtr();
-      if (error_ptr != NULL) {
-        fprintf(stderr, "Error before: %s\n", error_ptr);
-      }
-      goto skip_loop;
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            fprintf(stderr, "Error before: %s\n", error_ptr);
+        }
+        goto skip_loop;
     }
-#if 0
-    char *str = cJSON_Print(json);
-    if (str) {
-      puts(str);
-    }
-    free(str);
-#endif
 
     const cJSON *netcommon =
         cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
@@ -243,13 +265,13 @@ int main(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt(argc, argv, "t:")) != -1) {
         switch (opt) {
-		case 't':
-			scansec = atoi(optarg);
-			break;
-		default:
-			printf("Usage: %s [-t seconds]\n", argv[0]);
-			exit(EXIT_FAILURE);
-		}
-	}
-  	return scan();
+        case 't':
+            scansec = atoi(optarg);
+            break;
+        default:
+            printf("Usage: %s [-t seconds]\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
+    return scan();
 }

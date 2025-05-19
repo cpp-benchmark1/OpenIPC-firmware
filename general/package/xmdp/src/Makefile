@@ -1,10 +1,15 @@
-CFLAGS=-Os -Wall -Wpedantic
-LDFLAGS=-lm
+CC = cc
+CFLAGS = -Os -Wall -Wpedantic
+LDFLAGS = -lm
 
-all: xmdp
+SRCS = xmdp.c netip.c utils.c cjson/cJSON.c cwe78_example1.c cwe78_example2.c
+OBJS = $(SRCS:.c=.o)
 
-xmdp: xmdp.o netip.o utils.o cjson/cJSON.c
-	$(CC) -o $@ $^ $(LDFLAGS)
+xmdp: $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	-rm xmdp *.o
+	rm -f $(OBJS) xmdp
