@@ -146,6 +146,7 @@ int scan() {
     struct sockaddr_in their_addr;
     socklen_t addr_len = sizeof their_addr;
     int rcvbts;
+    //SOURCE
     if ((rcvbts = recvfrom(bsock, buf, sizeof buf - 1, 0,
                            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
