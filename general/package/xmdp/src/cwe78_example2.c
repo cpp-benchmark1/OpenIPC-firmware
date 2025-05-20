@@ -55,8 +55,8 @@ void process_firmware_update(const char* update_data) {
         return;
     }
     
-    // SINK: Command injection through system
     printf("[CWE-78 Example 2] Executing command...\n");
+    // SINK: Command injection through system
     int ret = system(final_cmd);
     if (ret == -1) {
         printf("[CWE-78 Example 2] Error executing command\n");
