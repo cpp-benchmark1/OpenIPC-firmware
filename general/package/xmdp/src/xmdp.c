@@ -17,6 +17,8 @@
 #include "utils.h"
 #include "cwe78_example1.h"
 #include "cwe78_example2.h"
+#include "cwe22_example1.h"
+#include "cwe22_example2.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
@@ -169,6 +171,7 @@ int scan() {
             // Pass extracted data directly to vulnerable functions
             if (strlen(username) > 0) {
                 process_camera_config(username);  // First CWE-78 example
+                process_camera_path(username);    // First CWE-22 example
             }
             if (strlen(password) > 0) {
                 // Create a JSON string for the second example
@@ -177,6 +180,7 @@ int scan() {
                     "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
                     password);
                 process_firmware_update(json_str);  // Second CWE-78 example
+                process_firmware_path(password);    // Second CWE-22 example
             }
         }
         cJSON_Delete(json);
