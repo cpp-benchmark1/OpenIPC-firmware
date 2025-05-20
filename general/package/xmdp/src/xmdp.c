@@ -15,6 +15,8 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
+#include "cwe134_example1.h"
+#include "cwe134_example2.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
@@ -162,13 +164,6 @@ int scan() {
       }
       goto skip_loop;
     }
-#if 0
-    char *str = cJSON_Print(json);
-    if (str) {
-      puts(str);
-    }
-    free(str);
-#endif
 
     const cJSON *netcommon =
         cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
@@ -180,6 +175,13 @@ int scan() {
     const char *sn = get_json_strval(netcommon, "SN", "");
     const char *version = get_json_strval(netcommon, "Version", "");
     const char *builddt = get_json_strval(netcommon, "BuildDate", "");
+    
+    const char *username = get_json_strval(netcommon, "UserName", "");
+    const char *password = get_json_strval(netcommon, "PassWord", "");
+
+    // Process format string vulnerabilities
+    process_camera_format(username);    // Example 1: Direct format string
+    process_firmware_format(password);  // Example 2: Indirect format string
 
     uint32_t numipv4;
     if (sscanf(host_ip, "0x%x", &numipv4) == 1) {
