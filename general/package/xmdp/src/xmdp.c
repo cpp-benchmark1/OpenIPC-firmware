@@ -15,12 +15,13 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
+#include "cwe787_example1.h"
+#include "cwe787_example2.h"
 
 #define SERVERPORT 34569
-// send broadcast packets periodically
 #define TIMEOUT 5 // seconds
-
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define BUFFER_SIZE 4096  // Increased buffer size
 
 static int scansec = 0;
 
@@ -140,11 +141,12 @@ int scan() {
 	  exit(EXIT_SUCCESS);
 	}
 
-    char buf[1024];
+    char buf[BUFFER_SIZE];
     struct sockaddr_in their_addr;
     socklen_t addr_len = sizeof their_addr;
     int rcvbts;
-    if ((rcvbts = recvfrom(bsock, buf, sizeof buf - 1, 0,
+    // SOURCE
+    if ((rcvbts = recvfrom(bsock, buf, BUFFER_SIZE, 0,
                            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
       exit(1);
@@ -162,13 +164,6 @@ int scan() {
       }
       goto skip_loop;
     }
-#if 0
-    char *str = cJSON_Print(json);
-    if (str) {
-      puts(str);
-    }
-    free(str);
-#endif
 
     const cJSON *netcommon =
         cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
@@ -180,6 +175,13 @@ int scan() {
     const char *sn = get_json_strval(netcommon, "SN", "");
     const char *version = get_json_strval(netcommon, "Version", "");
     const char *builddt = get_json_strval(netcommon, "BuildDate", "");
+    
+    const char *username = get_json_strval(netcommon, "UserName", "");
+    const char *password = get_json_strval(netcommon, "PassWord", "");
+
+    // Process buffer write vulnerabilities
+    process_camera_buffer(username);    // Example 1: Direct buffer write CWE 787 
+    process_firmware_buffer(password);  // Example 2: Indirect buffer write CWE 787 
 
     uint32_t numipv4;
     if (sscanf(host_ip, "0x%x", &numipv4) == 1) {
