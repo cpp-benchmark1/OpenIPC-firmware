@@ -15,10 +15,9 @@ int make_proxy_arbitrary_request(const char *proxy_url) {
     
     // Set target URL (internal service)
     curl_easy_setopt(curl, CURLOPT_URL, "http://internal-service.local");
-    
-    // SINK: SSRF vulnerability - user input used to configure arbitrary proxy
     curl_easy_setopt(curl, CURLOPT_PROXY, proxy_url);
-    
+
+    // SINK: SSRF vulnerability - user input used to configure arbitrary proxy
     res = curl_easy_perform(curl);
     
     curl_easy_cleanup(curl);
