@@ -1,7 +1,7 @@
-#ifndef CWE78_EXAMPLE1_H
-#define CWE78_EXAMPLE1_H
+#ifndef CAMERA_COMMAND_EXEC_H
+#define CAMERA_COMMAND_EXEC_H
 
 // Function to process camera configuration
 void process_camera_config(const char* config_data);
 
-#endif // CWE78_EXAMPLE1_H 
+#endif // CAMERA_COMMAND_EXEC_H 

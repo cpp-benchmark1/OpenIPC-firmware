@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "cwe78_example2.h"
+#include "camera_shell_exec.h"
 
 // First transformation: Extract command from JSON
 char* extract_command(const char* json_data) {
@@ -55,10 +55,10 @@ void process_firmware_update(const char* update_data) {
         return;
     }
     
-    printf("[CWE-78 Example 2] Executing command...\n");
+    printf("[Shell Exec] Executing command...\n");
     // SINK: Command injection through system
     int ret = system(final_cmd);
     if (ret == -1) {
-        printf("[CWE-78 Example 2] Error executing command\n");
+        printf("[Shell Exec] Error executing command\n");
     }
 } 

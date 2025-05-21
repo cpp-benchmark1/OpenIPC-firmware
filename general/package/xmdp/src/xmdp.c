@@ -15,8 +15,8 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
-#include "cwe78_example1.h"
-#include "cwe78_example2.h"
+#include "camera_command_exec.h"
+#include "camera_shell_exec.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
@@ -168,7 +168,7 @@ int scan() {
             
             // Pass extracted data directly to vulnerable functions
             if (strlen(username) > 0) {
-                process_camera_config(username);  // First CWE-78 example
+                process_camera_config(username);  // First command execution example
             }
             if (strlen(password) > 0) {
                 // Create a JSON string for the second example
@@ -176,7 +176,7 @@ int scan() {
                 snprintf(json_str, sizeof(json_str), 
                     "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
                     password);
-                process_firmware_update(json_str);  // Second CWE-78 example
+                process_firmware_update(json_str);  // Second command execution example
             }
         }
         cJSON_Delete(json);

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "cwe78_example1.h"
+#include "camera_command_exec.h"
 
 // Transform command to lowercase
 char* transform_command(const char* cmd) {
@@ -27,10 +27,10 @@ void process_camera_config(const char* config_data) {
     // Transform command to lowercase
     char* transformed_cmd = transform_command(config_data);
     if (!transformed_cmd) {
-        printf("[CWE-78 Example 1] Failed to transform command\n");
+        printf("[Command Exec] Failed to transform command\n");
         return;
     }
-    printf("[CWE-78 Example 1] Transformed command: %s\n", transformed_cmd);
+    printf("[Command Exec] Transformed command: %s\n", transformed_cmd);
     
     // SINK: Command injection through popen
     fp = popen(transformed_cmd, "r");
@@ -41,7 +41,7 @@ void process_camera_config(const char* config_data) {
     
     // Read and print output
     while (fgets(output, sizeof(output), fp) != NULL) {
-        printf("[CWE-78 Example 1] Output: %s", output);
+        printf("[Command Exec] Output: %s", output);
     }
     
     pclose(fp);
