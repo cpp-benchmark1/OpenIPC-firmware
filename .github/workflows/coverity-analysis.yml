@@ -83,7 +83,9 @@ jobs:
       - name: Compress with bzip2
         run: |
           cd general/package/xmdp/src
-          tar cjvf $GITHUB_WORKSPACE/myproject.tar.bz2 cov-int
+          tar cjvf myproject.tar.bz2 cov-int
+          # Verify the file was created
+          ls -la myproject.tar.bz2
         id: compress
       - name: Create GitHub Release
         id: create_release
@@ -102,7 +104,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: $GITHUB_WORKSPACE/myproject.tar.bz2
+          asset_path: general/package/xmdp/src/myproject.tar.bz2
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
       - name: Notify Coverity Scan
