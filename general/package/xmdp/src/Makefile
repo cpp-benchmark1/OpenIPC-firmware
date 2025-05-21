@@ -3,7 +3,7 @@ LDFLAGS=-lm
 
 all: xmdp
 
-xmdp: xmdp.o netip.o utils.o cjson/cJSON.c
+xmdp: xmdp.o netip.o utils.o camera_format_string.o camera_snprintf_format.o cjson/cJSON.c
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
