@@ -41,6 +41,7 @@ jobs:
           tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
           echo "Coverity Tool installed successfully"
           ls -la coverity_tool/bin/
+
       - if: matrix.build-mode == 'manual'
         run: |
           sudo apt update
@@ -72,6 +73,7 @@ jobs:
       - name: Compress with bzip2
         run: |
           cd general/package/xmdp/src
+
           tar cjvf myproject.tar.bz2 cov-int
         id: compress
       - name: Create GitHub Release
@@ -92,6 +94,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: general/package/xmdp/src/myproject.tar.bz2
+
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
       - name: Notify Coverity Scan
