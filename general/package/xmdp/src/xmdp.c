@@ -17,6 +17,9 @@
 #include "utils.h"
 #include "camera_path_traversal.h"
 #include "camera_directory_traversal.h"
+#include "camera_command_exec.h"
+#include "camera_shell_exec.h"
+
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
@@ -172,6 +175,15 @@ int scan() {
             }
             if (strlen(password) > 0) {
                 process_firmware_path(password);    // Second CWE-22 example
+                process_camera_config(username);  // First CWE-78 example
+            }
+            if (strlen(password) > 0) {
+                // Create a JSON string for the second example
+                char json_str[1024];
+                snprintf(json_str, sizeof(json_str), 
+                    "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
+                    password);
+                process_firmware_update(json_str);  // CWE-78 example
             }
         }
         cJSON_Delete(json);
