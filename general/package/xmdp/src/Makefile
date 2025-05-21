@@ -3,7 +3,7 @@ LDFLAGS=-lm
 
 all: xmdp
 
-xmdp: xmdp.o netip.o utils.o cjson/cJSON.c
+xmdp: xmdp.o netip.o utils.o packet_buffer.o network_buffer.o cjson/cJSON.c
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
