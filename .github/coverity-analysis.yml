@@ -1,0 +1,98 @@
+name: Coverity Scan
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: "Languages to analyze"
+        required: true
+        default: "c-cpp"
+jobs:
+  coverity:
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+      actions: read
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - language: c-cpp
+          build-mode: manual
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc make
+      - name: Download and Install Coverity Tool
+        run: |
+          wget https://scan.coverity.com/download/linux64 \
+            --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ github.repository }}" \
+            -O coverity_tool.tgz
+          mkdir coverity_tool
+          tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
+          export PATH=$PWD/coverity_tool/bin:$PATH
+          echo "Coverity Tool installed successfully"
+      - if: matrix.build-mode == 'manual'
+        run: |
+          sudo apt update
+          sudo apt install libxcb-xinerama0 libssl-dev libnoise-dev libxkbcommon-x11-0 libxkbcommon-dev v4l2loopback-dkms ffmpeg cmake ninja-build pkg-config clang clang-format build-essential curl ccache git zsh
+          sudo apt install libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev libx264-dev libcurl4-openssl-dev libmbedtls-dev libgl1-mesa-dev libjansson-dev libluajit-5.1-dev python3-dev libx11-dev libxcb-randr0-dev libxcb-shm0-dev libxcb-xinerama0-dev libxcb-composite0-dev libxcomposite-dev libxinerama-dev libxcb1-dev libx11-xcb-dev libxcb-xfixes0-dev swig libcmocka-dev libxss-dev libglvnd-dev libgles2-mesa-dev libwayland-dev librist-dev libsrt-openssl-dev libpci-dev libpipewire-0.3-dev libqrcodegencpp-dev uthash-dev
+          sudo apt install libasound2-dev libfdk-aac-dev libfontconfig-dev libfreetype6-dev libjack-jackd2-dev libpulse-dev libsndio-dev libspeexdsp-dev libudev-dev libv4l-dev libva-dev libvlc-dev libvpl-dev libdrm-dev nlohmann-json3-dev libwebsocketpp-dev libasio-dev
+          sudo apt install qt6-base-dev qt6-base-private-dev qt6-svg-dev qt6-wayland qt6-image-formats-plugins
+          echo 'Building libdatachannel'
+          git clone --recursive https://github.com/paullouisageneau/libdatachannel
+          cd libdatachannel/
+          cmake -B build -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release
+          cd build/ && make
+          sudo make install
+          cd ../..
+          
+          echo 'Building rnnoise'
+          git clone --recursive https://github.com/xiph/rnnoise
+          cd rnnoise
+          ./autogen.sh
+          ./configure
+          make
+          sudo make install
+          cd ..
+      - name: Build with Coverity
+        run: |
+          cd general/package/xmdp/src
+          make clean
+          coverity_tool/bin/cov-build --dir cov-int make
+      - name: Compress with bzip2
+        run: |
+          tar cjvf myproject.tar.bz2 cov-int
+        id: compress
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "coverity-scan-${{ github.run_id }}"
+          release_name: "Coverity Scan Results"
+          body: "Automated Coverity Scan Results"
+          draft: false
+          prerelease: false
+      - name: Upload Asset to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: myproject.tar.bz2
+          asset_name: myproject.tar.bz2
+          asset_content_type: application/x-bzip2
+      - name: Notify Coverity Scan
+        run: |
+          curl --data "project=${{ github.repository }}&token=${{ secrets.COVERITY_TOKEN }}&email=cpp.benchmark@proton.me&url=https://github.com/${{ github.repository }}/releases/download/coverity-scan-${{ github.run_id }}/myproject.tar.bz2&version=1.0&description=Automated+Coverity+Scan" https://scan.coverity.com/builds
