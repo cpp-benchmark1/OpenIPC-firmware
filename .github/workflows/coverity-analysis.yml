@@ -66,14 +66,21 @@ jobs:
           cd ..
       - name: Build with Coverity
         run: |
-          cd general/package/xmdp/src
-          # Clean any existing build artifacts (ignore errors if files don't exist)
+          cd $GITHUB_WORKSPACE/general/package/xmdp/src
           make clean || true
           # Build with Coverity
           $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
+          # Verify cov-int directory was created
+          ls -la cov-int || echo "Warning: cov-int directory not created"
       - name: Compress with bzip2
         run: |
-          tar cjvf myproject.tar.bz2 cov-int
+          cd $GITHUB_WORKSPACE/general/package/xmdp/src
+          if [ -d "cov-int" ]; then
+            tar cjvf $GITHUB_WORKSPACE/myproject.tar.bz2 cov-int
+          else
+            echo "Error: cov-int directory not found"
+            exit 1
+          fi
         id: compress
       - name: Create GitHub Release
         id: create_release
@@ -92,7 +99,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: myproject.tar.bz2
+          asset_path: $GITHUB_WORKSPACE/myproject.tar.bz2
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
       - name: Notify Coverity Scan
