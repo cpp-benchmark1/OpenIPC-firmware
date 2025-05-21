@@ -50,7 +50,6 @@ jobs:
           
           # Verify installation
           ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
-          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --version
           
           echo "Coverity Tool installed successfully"
       - if: matrix.build-mode == 'manual'
@@ -79,12 +78,11 @@ jobs:
       - name: Build with Coverity
         run: |
           cd general/package/xmdp/src
-          # Clean any existing build artifacts (ignore errors if files don't exist)
           make clean || true
-          # Build with Coverity using absolute path
           $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
       - name: Compress with bzip2
         run: |
+          cd general/package/xmdp/src
           tar cjvf myproject.tar.bz2 cov-int
         id: compress
       - name: Create GitHub Release
