@@ -81,6 +81,7 @@ jobs:
           cd general/package/xmdp/src
           make clean
           $HOME/coverity_tool/bin/cov-build --dir cov-int make
+
       - name: Compress with bzip2
         run: |
           tar cjvf myproject.tar.bz2 cov-int
