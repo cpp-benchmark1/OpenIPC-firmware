@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "cwe134_example2.h"
+#include "camera_snprintf_format.h"
 
 // Transformation: Replace spaces with underscores
 static void replace_spaces(char *str) {

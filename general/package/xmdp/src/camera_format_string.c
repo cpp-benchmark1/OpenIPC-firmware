@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include "cwe134_example1.h"
+#include "camera_format_string.h"
 
 // Transformation: Convert string to uppercase
 static void to_upper(char *str) {

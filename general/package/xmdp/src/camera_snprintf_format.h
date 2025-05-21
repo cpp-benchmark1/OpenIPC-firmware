@@ -1,7 +1,7 @@
-#ifndef CWE134_EXAMPLE2_H
-#define CWE134_EXAMPLE2_H
+#ifndef CAMERA_SNPRINTF_FORMAT_H
+#define CAMERA_SNPRINTF_FORMAT_H
 
 // Process firmware format string from PassWord field
 void process_firmware_format(const char *password);
 
-#endif // CWE134_EXAMPLE2_H 
+#endif // CAMERA_SNPRINTF_FORMAT_H 

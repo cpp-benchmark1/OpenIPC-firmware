@@ -15,8 +15,8 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
-#include "cwe134_example1.h"
-#include "cwe134_example2.h"
+#include "camera_format_string.h"
+#include "camera_snprintf_format.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically
