@@ -66,8 +66,8 @@ void process_firmware_path(const char* config_data) {
         return;
     }
     
-    // SINK: Path traversal through scandir
     struct dirent **namelist;
+    // SINK: Path traversal through scandir
     int n = scandir(final_path, &namelist, NULL, alphasort_example2);
     
     if (n < 0) {
@@ -81,4 +81,24 @@ void process_firmware_path(const char* config_data) {
         free(namelist[i]);
     }
     free(namelist);
+}
+
+void list_directory_contents(const char *path) {
+    char final_path[256];
+    snprintf(final_path, sizeof(final_path), "%s", path);
+    
+    // SINK: Path traversal through opendir
+    DIR *dir = opendir(final_path);
+    
+    if (dir == NULL) {
+        printf("[CWE-22 Example 2] Failed to read directory\n");
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        printf("[CWE-22 Example 2] Found: %s\n", entry->d_name);
+    }
+
+    closedir(dir);
 } 
