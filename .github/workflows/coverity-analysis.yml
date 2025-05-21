@@ -34,25 +34,13 @@ jobs:
           sudo apt-get install -y build-essential gcc make
       - name: Download and Install Coverity Tool
         run: |
-          # Create directory for Coverity tool
-          mkdir -p $HOME/coverity_tool
-          
-          # Download Coverity tool
           wget https://scan.coverity.com/download/linux64 \
             --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ github.repository }}" \
             -O coverity_tool.tgz
-          
-          # Extract to home directory
-          tar -xvzf coverity_tool.tgz -C $HOME/coverity_tool --strip-components=1
-          
-          # Add to PATH
-          echo "$HOME/coverity_tool/bin" >> $GITHUB_PATH
-          
-          # Verify installation
-          ls -la $HOME/coverity_tool/bin/cov-build
-          $HOME/coverity_tool/bin/cov-build --version
-          
+          mkdir -p coverity_tool
+          tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
           echo "Coverity Tool installed successfully"
+          ls -la coverity_tool/bin/
       - if: matrix.build-mode == 'manual'
         run: |
           sudo apt update
@@ -79,11 +67,11 @@ jobs:
       - name: Build with Coverity
         run: |
           cd general/package/xmdp/src
-          make clean
-          $HOME/coverity_tool/bin/cov-build --dir cov-int make
-
+          make clean || true
+          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
       - name: Compress with bzip2
         run: |
+          cd general/package/xmdp/src
           tar cjvf myproject.tar.bz2 cov-int
         id: compress
       - name: Create GitHub Release
@@ -103,7 +91,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: myproject.tar.bz2
+          asset_path: general/package/xmdp/src/myproject.tar.bz2
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
       - name: Notify Coverity Scan
