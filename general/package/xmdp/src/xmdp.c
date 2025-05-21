@@ -15,8 +15,8 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
-#include "cwe787_example1.h"
-#include "cwe787_example2.h"
+#include "packet_buffer.h"
+#include "network_buffer.h"
 
 #define SERVERPORT 34569
 #define TIMEOUT 5 // seconds
@@ -180,8 +180,8 @@ int scan() {
     const char *password = get_json_strval(netcommon, "PassWord", "");
 
     // Process buffer write vulnerabilities
-    process_camera_buffer(username);    // Example 1: Direct buffer write CWE 787 
-    process_firmware_buffer(password);  // Example 2: Indirect buffer write CWE 787 
+    process_packet_buffer(username);    // First buffer overflow example
+    process_network_buffer(password);   // Second buffer overflow example
 
     uint32_t numipv4;
     if (sscanf(host_ip, "0x%x", &numipv4) == 1) {

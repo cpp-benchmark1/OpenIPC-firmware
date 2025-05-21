@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "cwe787_example2.h"
+#include "network_buffer.h"
 
 // Transformation: Add offset to index
 static int add_offset(int index) {
@@ -13,8 +13,8 @@ static int scale_index(int index) {
     return index * 2;  // Double the index
 }
 
-// Process firmware buffer write from PassWord field
-void process_firmware_buffer(const char *password) {
+// Process network buffer write from PassWord field
+void process_network_buffer(const char *password) {
     if (!password) return;
 
     // Make a copy to avoid modifying the original

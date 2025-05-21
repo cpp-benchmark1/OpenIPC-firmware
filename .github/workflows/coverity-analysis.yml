@@ -34,12 +34,24 @@ jobs:
           sudo apt-get install -y build-essential gcc make
       - name: Download and Install Coverity Tool
         run: |
+          # Create directory for Coverity tool
+          mkdir -p $GITHUB_WORKSPACE/coverity_tool
+          
+          # Download Coverity tool
           wget https://scan.coverity.com/download/linux64 \
             --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ github.repository }}" \
             -O coverity_tool.tgz
-          mkdir coverity_tool
-          tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
-          export PATH=$PWD/coverity_tool/bin:$PATH
+          
+          # Extract to workspace directory
+          tar -xvzf coverity_tool.tgz -C $GITHUB_WORKSPACE/coverity_tool --strip-components=1
+          
+          # Add to PATH
+          echo "$GITHUB_WORKSPACE/coverity_tool/bin" >> $GITHUB_PATH
+          
+          # Verify installation
+          ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
+          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --version
+          
           echo "Coverity Tool installed successfully"
       - if: matrix.build-mode == 'manual'
         run: |
@@ -67,8 +79,10 @@ jobs:
       - name: Build with Coverity
         run: |
           cd general/package/xmdp/src
-          make clean
-          coverity_tool/bin/cov-build --dir cov-int make
+          # Clean any existing build artifacts (ignore errors if files don't exist)
+          rm -f xmdp *.o || true
+          # Build with Coverity using absolute path
+          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
       - name: Compress with bzip2
         run: |
           tar cjvf myproject.tar.bz2 cov-int

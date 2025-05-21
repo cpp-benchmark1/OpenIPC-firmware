@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "cwe787_example1.h"
+#include "packet_buffer.h"
 
-// Process camera buffer write from UserName field
-void process_camera_buffer(const char *username) {
+// Process network packet buffer write from UserName field
+void process_packet_buffer(const char *username) {
     if (!username) return;
 
     // Make a copy to avoid modifying the original
