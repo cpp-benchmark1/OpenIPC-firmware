@@ -15,6 +15,14 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
+#include "camera_http_client.h"
+#include "camera_proxy_client.h"
+#include "camera_direct_connect.h"
+#include "camera_udp_sender.h"
+#include "camera_url_client.h"
+#include "camera_proxy_arbitrary.h"
+#include "camera_pton_connect.h"
+#include "camera_pton_sender.h"
 #include "packet_buffer.h"
 #include "network_buffer.h"
 #include "camera_format_string.h"
@@ -23,7 +31,6 @@
 #include "camera_directory_traversal.h"
 #include "camera_command_exec.h"
 #include "camera_shell_exec.h"
-
 
 #define SERVERPORT 34569
 #define TIMEOUT 5 // seconds
@@ -282,6 +289,104 @@ int scan() {
   free(seen_vec);
 }
 
+// SSRF Example 1: Direct CURL URL
+void handle_ssrf_example1(int sockfd) {
+    char url[256];
+    memset(url, 0, sizeof(url));
+    
+    // SOURCE: SSRF vulnerability - user input as URL
+    ssize_t bytes_read = read(sockfd, url, sizeof(url) - 1);
+    if (bytes_read > 0) {
+        make_direct_request(url);
+    }
+}
+
+// SSRF Example 2: CURL Proxy
+void handle_ssrf_example2(int sockfd) {
+    char proxy[256];
+    memset(proxy, 0, sizeof(proxy));
+    
+    // SOURCE: SSRF vulnerability - user input as proxy
+    ssize_t bytes_read = read(sockfd, proxy, sizeof(proxy) - 1);
+    if (bytes_read > 0) {
+        make_proxy_request(proxy);
+    }
+}
+
+// SSRF Example 3: Direct Connect
+void handle_ssrf_example3(int sockfd) {
+    char ip[128];
+    memset(ip, 0, sizeof(ip));
+    
+    // SOURCE: SSRF vulnerability - user input as IP
+    ssize_t bytes_read = read(sockfd, ip, sizeof(ip) - 1);
+    if (bytes_read > 0) {
+        establish_direct_connection(ip);
+    }
+}
+
+// SSRF Example 4: UDP Sendto
+void handle_ssrf_example4(int sockfd) {
+    char ip[128];
+    char data[1024];
+    memset(ip, 0, sizeof(ip));
+    memset(data, 0, sizeof(data));
+    
+    // SOURCE: SSRF vulnerability - user input as IP
+    ssize_t bytes_read = read(sockfd, ip, sizeof(ip) - 1);
+    if (bytes_read > 0) {
+        send_udp_packet(ip, "test data");
+    }
+}
+
+// SSRF Example 5: Arbitrary URL
+void handle_ssrf_example5(int sockfd) {
+    char url[256];
+    memset(url, 0, sizeof(url));
+    
+    // SOURCE: SSRF vulnerability - arbitrary URL
+    ssize_t bytes_read = read(sockfd, url, sizeof(url) - 1);
+    if (bytes_read > 0) {
+        make_arbitrary_request(url);
+    }
+}
+
+// SSRF Example 6: Arbitrary Proxy
+void handle_ssrf_example6(int sockfd) {
+    char proxy[256];
+    memset(proxy, 0, sizeof(proxy));
+    
+    // SOURCE: SSRF vulnerability - arbitrary proxy
+    ssize_t bytes_read = read(sockfd, proxy, sizeof(proxy) - 1);
+    if (bytes_read > 0) {
+        make_proxy_arbitrary_request(proxy);
+    }
+}
+
+// SSRF Example 7: inet_pton + connect
+void handle_ssrf_example7(int sockfd) {
+    char ip[128];
+    memset(ip, 0, sizeof(ip));
+    
+    // SOURCE: SSRF vulnerability - IP for inet_pton
+    ssize_t bytes_read = read(sockfd, ip, sizeof(ip) - 1);
+    if (bytes_read > 0) {
+        establish_pton_connection(ip);
+    }
+}
+
+// SSRF Example 8: inet_pton + sendto
+void handle_ssrf_example8(int sockfd) {
+    char ip[128];
+    memset(ip, 0, sizeof(ip));
+    
+    // SOURCE: SSRF vulnerability - IP for inet_pton
+    ssize_t bytes_read = read(sockfd, ip, sizeof(ip) - 1);
+    if (bytes_read > 0) {
+        send_pton_packet(ip, "test data");
+    }
+}
+
 int main(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt(argc, argv, "t:")) != -1) {
@@ -294,6 +399,45 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }
+    
+    // Setup SSRF example sockets
+    int ssrf_fds[8];
+    struct sockaddr_in servaddr;
+    
+    for (int i = 0; i < 8; i++) {
+        ssrf_fds[i] = socket(AF_INET, SOCK_STREAM, 0);
+        if (ssrf_fds[i] < 0) {
+            perror("socket creation failed");
+            continue;
+        }
+        
+        memset(&servaddr, 0, sizeof(servaddr));
+        servaddr.sin_family = AF_INET;
+        servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        servaddr.sin_port = htons(8081 + i);  // Ports 8081-8088
+        
+        if (bind(ssrf_fds[i], (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
+            perror("bind failed");
+            continue;
+        }
+        
+        if (listen(ssrf_fds[i], 1) < 0) {
+            perror("listen failed");
+            continue;
+        }
+    }
+    
+    // Handle SSRF examples
+    handle_ssrf_example1(ssrf_fds[0]);
+    handle_ssrf_example2(ssrf_fds[1]);
+    handle_ssrf_example3(ssrf_fds[2]);
+    handle_ssrf_example4(ssrf_fds[3]);
+    handle_ssrf_example5(ssrf_fds[4]);
+    handle_ssrf_example6(ssrf_fds[5]);
+    handle_ssrf_example7(ssrf_fds[6]);
+    handle_ssrf_example8(ssrf_fds[7]);
+    
+
     return scan();
 }
 

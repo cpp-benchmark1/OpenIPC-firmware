@@ -53,7 +53,7 @@ jobs:
           # Verify installation
           ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
 
-          # Confirmation message and extra listing
+          # Confirmation message and full listing
           echo "Coverity Tool installed successfully"
           ls -la $GITHUB_WORKSPACE/coverity_tool/bin/
 

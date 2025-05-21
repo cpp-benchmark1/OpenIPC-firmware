@@ -1,5 +1,6 @@
 FROM ubuntu:22.04
 
+# Avoid interactive prompts during package installation
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     git \
     libncurses-dev \
     libtool \
+    libcurl4-openssl-dev \
     lzop \
     make \
     rsync \
@@ -51,16 +53,16 @@ RUN cd /build/general/package/xmdp/src && \
 RUN pip3 install --no-cache-dir \
     requests \
     python-nmap
+
 # Set permissions for exploit scripts
 RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py && \
     chmod +x /build/general/package/xmdp/src/exploit_cwe787.py
 
-# Set working directory to xmdp directory
 WORKDIR /build/general/package/xmdp/src
 
 # Add xmdp to PATH
 ENV PATH="/build/general/package/xmdp/src:${PATH}"
 
-# Default command
-CMD ["/bin/bash"]
+# Set default command to bash
+CMD ["/bin/bash"] 
 
