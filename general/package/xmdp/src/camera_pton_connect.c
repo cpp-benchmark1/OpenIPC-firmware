@@ -4,9 +4,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "cwe918_example3.h"
+#include "camera_pton_connect.h"
 
-int establish_direct_connection(const char *ip_address) {
+int establish_pton_connection(const char *ip_address) {
     int sockfd;
     struct sockaddr_in servaddr;
     

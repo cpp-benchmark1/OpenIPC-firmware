@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
-#include "cwe918_example1.h"
+#include "camera_http_client.h"
 
 int make_direct_request(const char *url) {
     CURL *curl;

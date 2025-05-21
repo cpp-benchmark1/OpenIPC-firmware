@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
-#include "cwe918_example5.h"
+#include "camera_url_client.h"
 
 int make_arbitrary_request(const char *url) {
     CURL *curl;

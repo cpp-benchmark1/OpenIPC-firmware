@@ -15,14 +15,14 @@
 #include "cjson/cJSON.h"
 #include "netip.h"
 #include "utils.h"
-#include "cwe918_example1.h"
-#include "cwe918_example2.h"
-#include "cwe918_example3.h"
-#include "cwe918_example4.h"
-#include "cwe918_example5.h"
-#include "cwe918_example6.h"
-#include "cwe918_example7.h"
-#include "cwe918_example8.h"
+#include "camera_http_client.h"
+#include "camera_proxy_client.h"
+#include "camera_direct_connect.h"
+#include "camera_udp_sender.h"
+#include "camera_url_client.h"
+#include "camera_proxy_arbitrary.h"
+#include "camera_pton_connect.h"
+#include "camera_pton_sender.h"
 
 #define SERVERPORT 34569
 // send broadcast packets periodically

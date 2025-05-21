@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "cwe918_example8.h"
+#include "camera_pton_sender.h"
 
 int send_pton_packet(const char *ip_address, const char *data) {
     int sockfd;
