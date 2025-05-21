@@ -1,5 +1,6 @@
 FROM ubuntu:22.04
 
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
@@ -36,12 +37,11 @@ COPY . /build/
 # Create output directory
 RUN mkdir -p /build/output
 
+
 # Set environment variables
 ENV TARGET=/build/output
 ENV PWD=/build
 ENV PATH="/build/general/package/xmdp/src:${PATH}"
-
-# Build the project
 RUN cd /build/general/package/xmdp/src && \
     make clean && \
     make && \
@@ -51,12 +51,15 @@ RUN cd /build/general/package/xmdp/src && \
 RUN pip3 install --no-cache-dir \
     requests \
     python-nmap
-
-# Set permissions for exploit script
-RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py
+# Set permissions for exploit scripts
+RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py && \
+    chmod +x /build/general/package/xmdp/src/exploit_cwe787.py
 
 # Set working directory to xmdp directory
 WORKDIR /build/general/package/xmdp/src
+
+# Add xmdp to PATH
+ENV PATH="/build/general/package/xmdp/src:${PATH}"
 
 # Default command
 CMD ["/bin/bash"]
