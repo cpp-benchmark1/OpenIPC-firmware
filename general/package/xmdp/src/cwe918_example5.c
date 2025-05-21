@@ -13,11 +13,11 @@ int make_arbitrary_request(const char *url) {
         return -1;
     }
     
-    // SINK: SSRF vulnerability - user input used to configure arbitrary URL
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    
+
+    // SINK: SSRF vulnerability - user input used to configure arbitrary URL
     res = curl_easy_perform(curl);
-    
+
     curl_easy_cleanup(curl);
     return (res == CURLE_OK) ? 0 : -1;
 } 
