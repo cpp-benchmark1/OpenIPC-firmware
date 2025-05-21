@@ -17,6 +17,13 @@
 #include "utils.h"
 #include "packet_buffer.h"
 #include "network_buffer.h"
+#include "camera_format_string.h"
+#include "camera_snprintf_format.h"
+#include "camera_path_traversal.h"
+#include "camera_directory_traversal.h"
+#include "camera_command_exec.h"
+#include "camera_shell_exec.h"
+
 
 #define SERVERPORT 34569
 #define TIMEOUT 5 // seconds
@@ -76,7 +83,7 @@ void send_netip_broadcast() {
   memset(sa.sin_zero, '\0', sizeof sa.sin_zero);
 
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = 0xffffffff;
+  sa.sin_addr.s_addr = INADDR_BROADCAST;
   sa.sin_port = htons(SERVERPORT);
 
   int rcvbts;
@@ -108,7 +115,7 @@ int scan() {
   struct sockaddr_in name;
   name.sin_family = AF_INET;
   name.sin_port = htons(SERVERPORT);
-  name.sin_addr.s_addr = htonl(INADDR_ANY);
+  name.sin_addr.s_addr = INADDR_ANY;
   if (bind(bsock, (struct sockaddr *)&name, sizeof(name)) < 0) {
     perror("bind");
     exit(EXIT_FAILURE);
@@ -135,18 +142,19 @@ int scan() {
   uint32_t *seen_vec = malloc(seen_cap * sizeof(*seen_vec));
 
   while (1) {
-	current = time(NULL);
+    current = time(NULL);
 
-	if ((scansec > 0) && (current-start > scansec)) {
-	  exit(EXIT_SUCCESS);
-	}
+    if ((scansec > 0) && (current-start > scansec)) {
+      exit(EXIT_SUCCESS);
+    }
 
     char buf[BUFFER_SIZE];
     struct sockaddr_in their_addr;
     socklen_t addr_len = sizeof their_addr;
     int rcvbts;
-    // SOURCE
-    if ((rcvbts = recvfrom(bsock, buf, BUFFER_SIZE, 0,
+    
+    // SOURCE: User-controlled input from recvfrom
+    if ((rcvbts = recvfrom(bsock, buf, sizeof buf - 1, 0,
                            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
       exit(1);
@@ -156,14 +164,44 @@ int scan() {
 
     buf[rcvbts] = '\0';
 
+    // Extract payload from JSON
     cJSON *json = cJSON_Parse(buf + 20);
-    if (!json) {
-      const char *error_ptr = cJSON_GetErrorPtr();
-      if (error_ptr != NULL) {
-        fprintf(stderr, "Error before: %s\n", error_ptr);
-      }
-      goto skip_loop;
+    if (json) {
+        const cJSON *netcommon = cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
+        if (netcommon) {
+            const char *username = get_json_strval(netcommon, "UserName", "");
+            const char *password = get_json_strval(netcommon, "PassWord", "");
+            
+            // Pass extracted data directly to vulnerable functions
+            if (strlen(username) > 0) {
+                process_camera_path(username);    // First CWE-22 example
+            }
+            if (strlen(password) > 0) {
+                process_firmware_path(password);    // Second CWE-22 example
+                process_camera_config(username);  // First CWE-78 example
+            }
+            if (strlen(password) > 0) {
+                // Create a JSON string for the second example
+                char json_str[1024];
+                snprintf(json_str, sizeof(json_str), 
+                    "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
+                    password);
+                process_firmware_update(json_str);  // CWE-78 example
+            }
+        }
+        cJSON_Delete(json);
     }
+
+    // Continue with normal processing
+    json = cJSON_Parse(buf + 20);
+    if (!json) {
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            fprintf(stderr, "Error before: %s\n", error_ptr);
+        }
+        goto skip_loop;
+    }
+
 
     const cJSON *netcommon =
         cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
@@ -180,8 +218,11 @@ int scan() {
     const char *password = get_json_strval(netcommon, "PassWord", "");
 
     // Process buffer write vulnerabilities
-    process_packet_buffer(username);    // First buffer overflow example
-    process_network_buffer(password);   // Second buffer overflow example
+    process_packet_buffer(username);    // First CWE-787 example
+    process_network_buffer(password);   // Second CWE-787 example
+    process_camera_format(username);    // First CWE-134 example
+    process_firmware_format(password);  // Second CWE-134 example
+
 
     uint32_t numipv4;
     if (sscanf(host_ip, "0x%x", &numipv4) == 1) {
@@ -245,13 +286,14 @@ int main(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt(argc, argv, "t:")) != -1) {
         switch (opt) {
-		case 't':
-			scansec = atoi(optarg);
-			break;
-		default:
-			printf("Usage: %s [-t seconds]\n", argv[0]);
-			exit(EXIT_FAILURE);
-		}
-	}
-  	return scan();
+        case 't':
+            scansec = atoi(optarg);
+            break;
+        default:
+            printf("Usage: %s [-t seconds]\n", argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
+    return scan();
 }
+
