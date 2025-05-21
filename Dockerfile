@@ -22,7 +22,7 @@ WORKDIR /root/xmdp/general/package/xmdp/src
 RUN make clean && make
 
 # Make exploit script executable
-RUN chmod +x exploit_cwe78.py
+RUN chmod +x exploit_cwe22.py
 
 # Default command
 CMD ["/bin/bash"] 

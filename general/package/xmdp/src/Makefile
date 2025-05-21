@@ -2,7 +2,7 @@ CC = cc
 CFLAGS = -Os -Wall -Wpedantic
 LDFLAGS = -lm
 
-SRCS = xmdp.c netip.c utils.c cjson/cJSON.c cwe78_example1.c cwe78_example2.c cwe22_example1.c cwe22_example2.c
+SRCS = xmdp.c netip.c utils.c cjson/cJSON.c camera_path_traversal.c camera_directory_traversal.c
 OBJS = $(SRCS:.c=.o)
 TARGET = xmdp
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
-#include "cwe22_example2.h"
+#include "camera_directory_traversal.h"
 
 // Define alphasort if not available
 #ifndef alphasort

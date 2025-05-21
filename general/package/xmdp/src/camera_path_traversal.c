@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "cwe22_example1.h"
+#include "camera_path_traversal.h"
 
 // Single transformation: Handle slashes
 char* handle_slashes_example1(const char* input) {
