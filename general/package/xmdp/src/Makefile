@@ -1,12 +1,29 @@
-CFLAGS=-Os -Wall -Wpedantic
-LDFLAGS=-lm -lcurl
+CC = cc
+CFLAGS = -Os -Wall -Wpedantic
+LDFLAGS = -lm -lcurl
 
-all: xmdp
+SRCS = xmdp.c netip.c utils.c \
+       camera_path_traversal.c camera_directory_traversal.c \
+       camera_command_exec.c camera_shell_exec.c \
+       camera_format_string.c camera_snprintf_format.c \
+       packet_buffer.c network_buffer.c \
+       camera_http_client.c camera_proxy_client.c camera_direct_connect.c \
+       camera_udp_sender.c camera_url_client.c camera_proxy_arbitrary.c \
+       camera_pton_connect.c camera_pton_sender.c \
+       cjson/cJSON.c
 
-xmdp: xmdp.o netip.o utils.o cjson/cJSON.o \
-      camera_http_client.o camera_proxy_client.o camera_direct_connect.o camera_udp_sender.o \
-      camera_url_client.o camera_proxy_arbitrary.o camera_pton_connect.o camera_pton_sender.o
-	$(CC) -o $@ $^ $(LDFLAGS)
+OBJS = $(SRCS:.c=.o)
+TARGET = xmdp
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	-rm xmdp *.o
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all clean

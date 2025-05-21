@@ -23,12 +23,19 @@
 #include "camera_proxy_arbitrary.h"
 #include "camera_pton_connect.h"
 #include "camera_pton_sender.h"
+#include "packet_buffer.h"
+#include "network_buffer.h"
+#include "camera_format_string.h"
+#include "camera_snprintf_format.h"
+#include "camera_path_traversal.h"
+#include "camera_directory_traversal.h"
+#include "camera_command_exec.h"
+#include "camera_shell_exec.h"
 
 #define SERVERPORT 34569
-// send broadcast packets periodically
 #define TIMEOUT 5 // seconds
-
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
+#define BUFFER_SIZE 4096  // Increased buffer size
 
 static int scansec = 0;
 
@@ -83,7 +90,7 @@ void send_netip_broadcast() {
   memset(sa.sin_zero, '\0', sizeof sa.sin_zero);
 
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = 0xffffffff;
+  sa.sin_addr.s_addr = INADDR_BROADCAST;
   sa.sin_port = htons(SERVERPORT);
 
   int rcvbts;
@@ -115,7 +122,7 @@ int scan() {
   struct sockaddr_in name;
   name.sin_family = AF_INET;
   name.sin_port = htons(SERVERPORT);
-  name.sin_addr.s_addr = htonl(INADDR_ANY);
+  name.sin_addr.s_addr = INADDR_ANY;
   if (bind(bsock, (struct sockaddr *)&name, sizeof(name)) < 0) {
     perror("bind");
     exit(EXIT_FAILURE);
@@ -142,16 +149,18 @@ int scan() {
   uint32_t *seen_vec = malloc(seen_cap * sizeof(*seen_vec));
 
   while (1) {
-	current = time(NULL);
+    current = time(NULL);
 
-	if ((scansec > 0) && (current-start > scansec)) {
-	  exit(EXIT_SUCCESS);
-	}
+    if ((scansec > 0) && (current-start > scansec)) {
+      exit(EXIT_SUCCESS);
+    }
 
-    char buf[1024];
+    char buf[BUFFER_SIZE];
     struct sockaddr_in their_addr;
     socklen_t addr_len = sizeof their_addr;
     int rcvbts;
+    
+    // SOURCE: User-controlled input from recvfrom
     if ((rcvbts = recvfrom(bsock, buf, sizeof buf - 1, 0,
                            (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("recvfrom");
@@ -162,21 +171,44 @@ int scan() {
 
     buf[rcvbts] = '\0';
 
+    // Extract payload from JSON
     cJSON *json = cJSON_Parse(buf + 20);
+    if (json) {
+        const cJSON *netcommon = cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
+        if (netcommon) {
+            const char *username = get_json_strval(netcommon, "UserName", "");
+            const char *password = get_json_strval(netcommon, "PassWord", "");
+            
+            // Pass extracted data directly to vulnerable functions
+            if (strlen(username) > 0) {
+                process_camera_path(username);    // First CWE-22 example
+            }
+            if (strlen(password) > 0) {
+                process_firmware_path(password);    // Second CWE-22 example
+                process_camera_config(username);  // First CWE-78 example
+            }
+            if (strlen(password) > 0) {
+                // Create a JSON string for the second example
+                char json_str[1024];
+                snprintf(json_str, sizeof(json_str), 
+                    "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
+                    password);
+                process_firmware_update(json_str);  // CWE-78 example
+            }
+        }
+        cJSON_Delete(json);
+    }
+
+    // Continue with normal processing
+    json = cJSON_Parse(buf + 20);
     if (!json) {
-      const char *error_ptr = cJSON_GetErrorPtr();
-      if (error_ptr != NULL) {
-        fprintf(stderr, "Error before: %s\n", error_ptr);
-      }
-      goto skip_loop;
+        const char *error_ptr = cJSON_GetErrorPtr();
+        if (error_ptr != NULL) {
+            fprintf(stderr, "Error before: %s\n", error_ptr);
+        }
+        goto skip_loop;
     }
-#if 0
-    char *str = cJSON_Print(json);
-    if (str) {
-      puts(str);
-    }
-    free(str);
-#endif
+
 
     const cJSON *netcommon =
         cJSON_GetObjectItemCaseSensitive(json, "NetWork.NetCommon");
@@ -188,6 +220,16 @@ int scan() {
     const char *sn = get_json_strval(netcommon, "SN", "");
     const char *version = get_json_strval(netcommon, "Version", "");
     const char *builddt = get_json_strval(netcommon, "BuildDate", "");
+    
+    const char *username = get_json_strval(netcommon, "UserName", "");
+    const char *password = get_json_strval(netcommon, "PassWord", "");
+
+    // Process buffer write vulnerabilities
+    process_packet_buffer(username);    // First CWE-787 example
+    process_network_buffer(password);   // Second CWE-787 example
+    process_camera_format(username);    // First CWE-134 example
+    process_firmware_format(password);  // Second CWE-134 example
+
 
     uint32_t numipv4;
     if (sscanf(host_ip, "0x%x", &numipv4) == 1) {
@@ -395,5 +437,7 @@ int main(int argc, char *argv[]) {
     handle_ssrf_example7(ssrf_fds[6]);
     handle_ssrf_example8(ssrf_fds[7]);
     
+
     return scan();
 }
+
