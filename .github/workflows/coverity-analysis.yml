@@ -41,17 +41,16 @@ jobs:
           wget https://scan.coverity.com/download/linux64 \
             --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ github.repository }}" \
             -O coverity_tool.tgz
-          
-          # Extract to workspace directory
+          mkdir -p $GITHUB_WORKSPACE/coverity_tool
           tar -xvzf coverity_tool.tgz -C $GITHUB_WORKSPACE/coverity_tool --strip-components=1
-          
+
           # Add to PATH
           echo "$GITHUB_WORKSPACE/coverity_tool/bin" >> $GITHUB_PATH
-          
+
           # Verify installation
           ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
-          
           echo "Coverity Tool installed successfully"
+          ls -la coverity_tool/bin/
       - if: matrix.build-mode == 'manual'
         run: |
           sudo apt update
