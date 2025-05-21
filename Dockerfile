@@ -1,6 +1,5 @@
 FROM ubuntu:22.04
 
-# Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
@@ -13,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     file \
     fzf \
+    gcc \
     git \
     libncurses-dev \
     libtool \
@@ -30,17 +30,18 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /build
 
-# Copy the OpenIPC firmware source
+# Copy the entire project
 COPY . /build/
 
 # Create output directory
-RUN mkdir -p output
+RUN mkdir -p /build/output
 
 # Set environment variables
 ENV TARGET=/build/output
 ENV PWD=/build
+ENV PATH="/build/general/package/xmdp/src:${PATH}"
 
-# Build xmdp
+# Build the project
 RUN cd /build/general/package/xmdp/src && \
     make clean && \
     make && \
@@ -51,14 +52,12 @@ RUN pip3 install --no-cache-dir \
     requests \
     python-nmap
 
-# Set permissions for exploit scripts
+# Set permissions for exploit script
 RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py
 
-# Set working directory to xmdp
+# Set working directory to xmdp directory
 WORKDIR /build/general/package/xmdp/src
 
-# Add xmdp to PATH
-ENV PATH="/build/general/package/xmdp/src:${PATH}"
-
-# Set default command to bash
+# Default command
 CMD ["/bin/bash"]
+

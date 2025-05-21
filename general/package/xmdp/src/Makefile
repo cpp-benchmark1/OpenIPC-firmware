@@ -1,10 +1,29 @@
-CFLAGS=-Os -Wall -Wpedantic
-LDFLAGS=-lm
+CC = cc
+CFLAGS = -Os -Wall -Wpedantic
+LDFLAGS = -lm
 
-all: xmdp
+SRCS = xmdp.c netip.c utils.c cjson/cJSON.c \
+       camera_path_traversal.c camera_directory_traversal.c \
+       camera_command_exec.c camera_shell_exec.c
+OBJS = $(SRCS:.c=.o)
+TARGET = xmdp
 
-xmdp: xmdp.o netip.o utils.o camera_format_string.o camera_snprintf_format.o cjson/cJSON.c
-	$(CC) -o $@ $^ $(LDFLAGS)
+SRCS = xmdp.c netip.c utils.c \
+       camera_format_string.c camera_snprintf_format.c \
+       cjson/cJSON.c
+OBJS = $(SRCS:.c=.o)
+TARGET = xmdp
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) -o $@ $(OBJS) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 
 clean:
-	-rm xmdp *.o
+	rm -f $(OBJS) $(TARGET)
+
+.PHONY: all clean

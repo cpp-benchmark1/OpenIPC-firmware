@@ -34,13 +34,28 @@ jobs:
           sudo apt-get install -y build-essential gcc make
       - name: Download and Install Coverity Tool
         run: |
+          # Create directory for Coverity tool
+          mkdir -p $GITHUB_WORKSPACE/coverity_tool
+          
+          # Download Coverity tool
           wget https://scan.coverity.com/download/linux64 \
             --post-data "token=${{ secrets.COVERITY_TOKEN }}&project=${{ github.repository }}" \
             -O coverity_tool.tgz
-          mkdir -p coverity_tool
-          tar -xvzf coverity_tool.tgz -C coverity_tool --strip-components=1
+          # Create the directory
+          mkdir -p $GITHUB_WORKSPACE/coverity_tool
+
+          # Extract the tarball into the workspace
+          tar -xvzf coverity_tool.tgz -C $GITHUB_WORKSPACE/coverity_tool --strip-components=1
+
+          # Add to PATH
+          echo "$GITHUB_WORKSPACE/coverity_tool/bin" >> $GITHUB_PATH
+
+          # Verify installation
+          ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
+
+          # Confirmation message and extra listing
           echo "Coverity Tool installed successfully"
-          ls -la coverity_tool/bin/
+          ls -la $GITHUB_WORKSPACE/coverity_tool/bin/
 
       - if: matrix.build-mode == 'manual'
         run: |
@@ -75,6 +90,8 @@ jobs:
           cd general/package/xmdp/src
 
           tar cjvf myproject.tar.bz2 cov-int
+          # Verify the file was created
+          ls -la myproject.tar.bz2
         id: compress
       - name: Create GitHub Release
         id: create_release
