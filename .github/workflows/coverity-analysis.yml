@@ -51,7 +51,6 @@ jobs:
           # Verify installation
           ls -la $GITHUB_WORKSPACE/coverity_tool/bin/cov-build
           
-
           echo "Coverity Tool installed successfully"
       - if: matrix.build-mode == 'manual'
         run: |
@@ -84,8 +83,7 @@ jobs:
       - name: Compress with bzip2
         run: |
           cd general/package/xmdp/src
-
-          tar cjvf myproject.tar.bz2 cov-int
+          tar cjvf $GITHUB_WORKSPACE/myproject.tar.bz2 cov-int
         id: compress
       - name: Create GitHub Release
         id: create_release
@@ -104,7 +102,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: myproject.tar.bz2
+          asset_path: $GITHUB_WORKSPACE/myproject.tar.bz2
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
       - name: Notify Coverity Scan
