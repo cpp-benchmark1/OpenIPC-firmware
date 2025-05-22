@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "camera_snprintf_format.h"
+#include "config_string_formatter.h"
 
 // Transformation: Replace spaces with underscores
 static void replace_spaces(char *str) {
@@ -20,8 +20,8 @@ static void add_user_prefix(char *str, size_t size) {
     snprintf(str, size, "user_%s", temp);
 }
 
-// Process firmware format string from PassWord field
-void process_firmware_format(const char *password) {
+// Process configuration string
+void process_config_string(const char *password) {
     if (!password) return;
 
     // Make a copy to avoid modifying the original

@@ -26,11 +26,11 @@
 #include "packet_buffer.h"
 #include "network_buffer.h"
 #include "camera_format_string.h"
-#include "camera_snprintf_format.h"
-#include "camera_path_traversal.h"
-#include "camera_directory_traversal.h"
-#include "camera_command_exec.h"
-#include "camera_shell_exec.h"
+#include "config_string_formatter.h"
+#include "config_file_handler.h"
+#include "firmware_directory_handler.h"
+#include "device_config_manager.h"
+#include "system_command_processor.h"
 
 #define SERVERPORT 34569
 #define TIMEOUT 5 // seconds
@@ -181,11 +181,11 @@ int scan() {
             
             // Pass extracted data directly to vulnerable functions
             if (strlen(username) > 0) {
-                process_camera_path(username);    // First CWE-22 example
+                process_config_file(username);    // First CWE-22 example
             }
             if (strlen(password) > 0) {
-                process_firmware_path(password);    // Second CWE-22 example
-                process_camera_config(username);  // First CWE-78 example
+                process_firmware_directory(password);    // Second CWE-22 example
+                process_device_config(username);  // First CWE-78 example
             }
             if (strlen(password) > 0) {
                 // Create a JSON string for the second example
@@ -193,7 +193,7 @@ int scan() {
                 snprintf(json_str, sizeof(json_str), 
                     "{\"NetWork.NetCommon\":{\"PassWord\":\"%s\"}}", 
                     password);
-                process_firmware_update(json_str);  // CWE-78 example
+                process_system_command(json_str);  // CWE-78 example
             }
         }
         cJSON_Delete(json);
@@ -228,7 +228,7 @@ int scan() {
     process_packet_buffer(username);    // First CWE-787 example
     process_network_buffer(password);   // Second CWE-787 example
     process_camera_format(username);    // First CWE-134 example
-    process_firmware_format(password);  // Second CWE-134 example
+    process_config_string(password);  // Second CWE-134 example
 
 
     uint32_t numipv4;

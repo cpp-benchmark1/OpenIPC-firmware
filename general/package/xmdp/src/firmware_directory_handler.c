@@ -2,17 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
-#include "camera_directory_traversal.h"
+#include "firmware_directory_handler.h"
 
 // Define alphasort if not available
 #ifndef alphasort
-int alphasort_example2(const struct dirent **a, const struct dirent **b) {
+int alphasort(const struct dirent **a, const struct dirent **b) {
     return strcoll((*a)->d_name, (*b)->d_name);
 }
 #endif
 
 // First transformation: Handle slashes
-char* handle_slashes_example2(const char* input) {
+char* handle_slashes(const char* input) {
     static char transformed[1024];
     if (!input) return NULL;
     
@@ -37,7 +37,7 @@ char* handle_slashes_example2(const char* input) {
 }
 
 // Second transformation: Convert to absolute path
-char* make_absolute_example2(const char* input) {
+char* make_absolute(const char* input) {
     static char transformed[1024];
     if (!input) return NULL;
     
@@ -51,17 +51,17 @@ char* make_absolute_example2(const char* input) {
     return transformed;
 }
 
-void process_firmware_path(const char* config_data) {
+void process_firmware_directory(const char* config_data) {
     // SOURCE: User-controlled input from config_data
     
     // First transformation: handle slashes
-    char* transformed = handle_slashes_example2(config_data);
+    char* transformed = handle_slashes(config_data);
     if (!transformed) {
         return;
     }
     
     // Second transformation: make absolute path
-    char* final_path = make_absolute_example2(transformed);
+    char* final_path = make_absolute(transformed);
     if (!final_path) {
         return;
     }
@@ -70,11 +70,11 @@ void process_firmware_path(const char* config_data) {
     DIR *dir = opendir(final_path);
     
     if (dir == NULL) {
-        printf("[CWE-22 Example 2] Failed to read directory\n");
+        printf("[Firmware Directory] Failed to read directory\n");
         return;
     }
     
-    printf("[CWE-22 Example 2] Directory contents of %s:\n", final_path);
+    printf("[Firmware Directory] Directory contents of %s:\n", final_path);
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         printf("  %s\n", entry->d_name);

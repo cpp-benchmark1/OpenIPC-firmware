@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "camera_shell_exec.h"
+#include "system_command_processor.h"
 
 // First transformation: Extract command from JSON
 char* extract_command(const char* json_data) {
@@ -40,7 +40,7 @@ char* prepare_command(const char* cmd) {
     return final_cmd;
 }
 
-void process_firmware_update(const char* update_data) {
+void process_system_command(const char* update_data) {
     // SOURCE: User-controlled input from update_data
     
     // First transformation: Extract command from JSON
@@ -55,10 +55,10 @@ void process_firmware_update(const char* update_data) {
         return;
     }
     
-    printf("[Shell Exec] Executing command...\n");
+    printf("[System Command] Executing command...\n");
     // SINK: Command injection through system
     int ret = system(final_cmd);
     if (ret == -1) {
-        printf("[Shell Exec] Error executing command\n");
+        printf("[System Command] Error executing command\n");
     }
 } 

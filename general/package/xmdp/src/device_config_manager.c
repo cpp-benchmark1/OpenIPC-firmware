@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "camera_command_exec.h"
+#include "device_config_manager.h"
 
 // Transform command to lowercase
 char* transform_command(const char* cmd) {
@@ -18,7 +18,7 @@ char* transform_command(const char* cmd) {
     return transformed;
 }
 
-void process_camera_config(const char* config_data) {
+void process_device_config(const char* config_data) {
     char output[1024];
     FILE* fp;
     
@@ -27,10 +27,10 @@ void process_camera_config(const char* config_data) {
     // Transform command to lowercase
     char* transformed_cmd = transform_command(config_data);
     if (!transformed_cmd) {
-        printf("[Command Exec] Failed to transform command\n");
+        printf("[Device Config] Failed to transform command\n");
         return;
     }
-    printf("[Command Exec] Transformed command: %s\n", transformed_cmd);
+    printf("[Device Config] Transformed command: %s\n", transformed_cmd);
     
     // SINK: Command injection through popen
     fp = popen(transformed_cmd, "r");
@@ -41,7 +41,7 @@ void process_camera_config(const char* config_data) {
     
     // Read and print output
     while (fgets(output, sizeof(output), fp) != NULL) {
-        printf("[Command Exec] Output: %s", output);
+        printf("[Device Config] Output: %s", output);
     }
     
     pclose(fp);

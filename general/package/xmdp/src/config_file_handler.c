@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "camera_path_traversal.h"
+#include "config_file_handler.h"
 
 // Single transformation: Handle slashes
-char* handle_slashes_example1(const char* input) {
+char* handle_slashes(const char* input) {
     static char transformed[1024];
     if (!input) return NULL;
     
@@ -28,11 +28,11 @@ char* handle_slashes_example1(const char* input) {
     return transformed;
 }
 
-void process_camera_path(const char* config_data) {
+void process_config_file(const char* config_data) {
     // SOURCE: User-controlled input from config_data
     
     // Single transformation: handle slashes
-    char* transformed = handle_slashes_example1(config_data);
+    char* transformed = handle_slashes(config_data);
     if (!transformed) {
         return;
     }
@@ -40,11 +40,11 @@ void process_camera_path(const char* config_data) {
     // SINK: Path traversal through fopen
     FILE* fp = fopen(transformed, "r");
     if (!fp) {
-        printf("[CWE-22 Example 1] Failed to open file: %s\n", transformed);
+        printf("[Config File] Failed to open file: %s\n", transformed);
         return;
     }
     
-    printf("[CWE-22 Example 1] Successfully opened file: %s\n", transformed);
+    printf("[Config File] Successfully opened file: %s\n", transformed);
     char buffer[1024];
     while (fgets(buffer, sizeof(buffer), fp)) {
         printf("  %s", buffer);
