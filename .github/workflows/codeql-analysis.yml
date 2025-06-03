@@ -33,15 +33,23 @@ jobs:
       run: |
         cd general/package/xmdp/src
         make clean || true
-        # Fix multiple definition error by using -fcommon flag
-        CFLAGS="-fcommon" make || {
+        
+        # Create a temporary fix for the multiple definition issue
+        echo "Fixing multiple definition issue..."
+        sed -i 's/char\* handle_slashes/static char\* handle_slashes/g' firmware_directory_handler.c
+        
+        # Fix missing ctype.h include
+        echo "Fixing missing ctype.h include..."
+        sed -i '4i #include <ctype.h>' packet_buffer.c
+        
+        # Build with specific flags to handle warnings
+        CFLAGS="-Wall -Wpedantic -Wno-format-security -Wno-format-truncation" make || {
           echo "Build failed. Checking for specific errors..."
-          # Check for multiple definition error
           if grep -q "multiple definition of.*handle_slashes" make.log 2>/dev/null; then
-            echo "Found multiple definition error. Attempting to fix..."
-            # Create a temporary fix by renaming one of the functions
+            echo "Found multiple definition error. Attempting alternative fix..."
+            # Alternative fix: rename the function in firmware_directory_handler.c
             sed -i 's/handle_slashes/firmware_handle_slashes/g' firmware_directory_handler.c
-            # Rebuild with the fix
+            sed -i 's/transformed = handle_slashes/transformed = firmware_handle_slashes/g' firmware_directory_handler.c
             make
           else
             echo "Unknown build error. Please check the logs."
