@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc make
+          sudo apt-get install -y build-essential gcc make libcurl4-openssl-dev
       - name: Download and Install Coverity Tool
         run: |
           # Create directory for Coverity tool
@@ -80,19 +80,45 @@ jobs:
           make
           sudo make install
           cd ..
+
+      - name: Prepare build environment
+        run: |
+          cd general/package/xmdp/src
+          # Fix multiple definition issue
+          sed -i 's/char\* handle_slashes/static char\* handle_slashes/g' firmware_directory_handler.c
+          # Fix missing ctype.h include
+          sed -i '4i #include <ctype.h>' packet_buffer.c
+          # Create a backup of the original files
+          cp firmware_directory_handler.c firmware_directory_handler.c.bak
+          cp packet_buffer.c packet_buffer.c.bak
+
       - name: Build with Coverity
         run: |
           cd general/package/xmdp/src
           make clean || true
-          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
+          # Build with specific flags to handle warnings
+          CFLAGS="-Wall -Wpedantic -Wno-format-security -Wno-format-truncation" \
+          $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make || {
+            echo "Initial build failed, attempting alternative fix..."
+            # Restore original files
+            mv firmware_directory_handler.c.bak firmware_directory_handler.c
+            mv packet_buffer.c.bak packet_buffer.c
+            # Try alternative fix
+            sed -i 's/handle_slashes/firmware_handle_slashes/g' firmware_directory_handler.c
+            sed -i 's/transformed = handle_slashes/transformed = firmware_handle_slashes/g' firmware_directory_handler.c
+            # Rebuild with Coverity
+            CFLAGS="-Wall -Wpedantic -Wno-format-security -Wno-format-truncation" \
+            $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
+          }
+
       - name: Compress with bzip2
         run: |
           cd general/package/xmdp/src
-
           tar cjvf myproject.tar.bz2 cov-int
           # Verify the file was created
           ls -la myproject.tar.bz2
         id: compress
+
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
@@ -104,6 +130,7 @@ jobs:
           body: "Automated Coverity Scan Results"
           draft: false
           prerelease: false
+
       - name: Upload Asset to Release
         uses: actions/upload-release-asset@v1
         env:
@@ -111,9 +138,9 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: general/package/xmdp/src/myproject.tar.bz2
-
           asset_name: myproject.tar.bz2
           asset_content_type: application/x-bzip2
+
       - name: Notify Coverity Scan
         run: |
           curl --data "project=${{ github.repository }}&token=${{ secrets.COVERITY_TOKEN }}&email=cpp.benchmark@proton.me&url=https://github.com/${{ github.repository }}/releases/download/coverity-scan-${{ github.run_id }}/myproject.tar.bz2&version=1.0&description=Automated+Coverity+Scan" https://scan.coverity.com/builds
