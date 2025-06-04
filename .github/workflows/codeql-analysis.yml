@@ -1,10 +1,16 @@
 name: "CodeQL Analysis"
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      languages:
+        description: "Languages to analyze"
+        required: true
+        default: "c-cpp"
 
 jobs:
   analyze:
@@ -27,27 +33,23 @@ jobs:
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: c-cpp
+        languages: ${{ github.event.inputs.languages }}
 
     - name: Build project
       run: |
         cd general/package/xmdp/src
         make clean || true
         
-        # Create a temporary fix for the multiple definition issue
         echo "Fixing multiple definition issue..."
         sed -i 's/char\* handle_slashes/static char\* handle_slashes/g' firmware_directory_handler.c
         
-        # Fix missing ctype.h include
         echo "Fixing missing ctype.h include..."
         sed -i '4i #include <ctype.h>' packet_buffer.c
         
-        # Build with specific flags to handle warnings
         CFLAGS="-Wall -Wpedantic -Wno-format-security -Wno-format-truncation" make || {
           echo "Build failed. Checking for specific errors..."
           if grep -q "multiple definition of.*handle_slashes" make.log 2>/dev/null; then
             echo "Found multiple definition error. Attempting alternative fix..."
-            # Alternative fix: rename the function in firmware_directory_handler.c
             sed -i 's/handle_slashes/firmware_handle_slashes/g' firmware_directory_handler.c
             sed -i 's/transformed = handle_slashes/transformed = firmware_handle_slashes/g' firmware_directory_handler.c
             make
@@ -60,4 +62,4 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
-        category: "/language:c-cpp"
+        category: "/language:${{ github.event.inputs.languages }}"
