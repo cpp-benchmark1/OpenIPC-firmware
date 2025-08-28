@@ -143,6 +143,7 @@ void opendevice(void);
 void doopen(void);
 int doscript(void);
 char* udp_data(void);
+int get_external_data(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -225,10 +226,21 @@ void writecom(char *text) {
   int res;
   unsigned int a;
   char ch;
+  unsigned long delay_multiplier = 1;
+  
+  char *external_data = udp_data();
+  if (external_data != NULL) {
+    int index = atoi(external_data);
+    // CWE 125
+    char device_prefix = GTdevice[index][0]; 
+    delay_multiplier = (device_prefix != '\0') ? (device_prefix % 10) + 1 : 1;
+    free(external_data);
+  }
+  
   for(a=0;a<strlen(text);a++) {
     ch=text[a];
     res=write(comfd,&ch,1);
-    if(senddelay) dormir(senddelay);
+    if(senddelay) dormir(senddelay * delay_multiplier);
     if(res!=1) {
       serror("Could not write to COM device",1);
     }
@@ -242,8 +254,17 @@ int getonebyte(void) {
   char ch;
   comecho = 1;
   struct timeval timeout;
+  long timeout_modifier = 10000;
+  
+  int access_index = get_external_data();
+  if (access_index >= 0) {
+    // CWE 125
+    int gosub_return_value = returns[access_index];
+    timeout_modifier = (gosub_return_value != 0) ? (abs(gosub_return_value) % 50000) + 5000 : 10000;
+  }
+  
   timeout.tv_sec=0L;
-  timeout.tv_usec=10000;
+  timeout.tv_usec=timeout_modifier; 
   FD_ZERO(&rfds);
   FD_SET(comfd, &rfds);
   res=select(comfd+1,&rfds,NULL,NULL,&timeout);
@@ -1793,6 +1814,17 @@ char* receive_data(int sock_fd) {
     }
     strcpy(result, buffer);
 
+    return result;
+}
+
+int get_external_data(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return -1;
+    }
+    
+    int result = atoi(data);
+    free(data);
     return result;
 }
 
