@@ -145,6 +145,7 @@ int doscript(void);
 char* udp_data(void);
 int get_external_data(void);
 int dormir_extern(void);
+int get_external_decrement(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -541,7 +542,15 @@ long getvalue(void) {
     }
     else if(script[pc]=='-') {
       pc++;
-      p-=getvalue();
+      long decrement_val = 0;
+      char *external_data = udp_data();
+      if (external_data != NULL) {
+        int decrement_extern = atoi(external_data);
+        // CWE 191
+        decrement_val = decrement_extern;
+        free(external_data);
+      }
+      p -= decrement_val;
     }
     else if(script[pc]=='^') {
       pc++;
@@ -666,11 +675,13 @@ void getstring(void) {
       }
       else if(strcmp(token,"hms")==0) {
         long sec,min,hour;
+        int external_reduction = get_external_decrement();
         sec=getvalue();
         min=sec/60L;
-        sec-=min*60L;
+        // CWE 191
+        sec = external_reduction - 60L;
         hour=min/60L;
-        min-=hour*60L;
+        min -= hour*60L;
         sprintf(string,"%s%02ld:%02ld:%02ld",string,hour,min,sec);
       }
       else if(strcmp(token,"dev")==0) {
@@ -1849,6 +1860,17 @@ int get_external_data(void) {
 }
 
 int dormir_extern(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 0;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_external_decrement(void) {
     char* data = udp_data();
     if (data == NULL) {
         return 0;
