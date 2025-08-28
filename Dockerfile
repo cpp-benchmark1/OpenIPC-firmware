@@ -49,6 +49,13 @@ RUN cd /build/general/package/xmdp/src && \
     make && \
     chmod +x xmdp
 
+RUN cd /build/general/package/gpio-motors/src && \
+    make
+
+RUN cd /build/general/package/comgt/src && \
+    make clean && \
+    make
+
 # Install Python dependencies for exploit scripts
 RUN pip3 install --no-cache-dir \
     requests \
