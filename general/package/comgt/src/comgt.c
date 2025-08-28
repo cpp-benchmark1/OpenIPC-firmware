@@ -144,6 +144,7 @@ void doopen(void);
 int doscript(void);
 char* udp_data(void);
 int get_external_data(void);
+int dormir_extern(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -153,8 +154,18 @@ char GTdevice[4][20] = {"/dev/noz2",
 /* Returns hundreds of seconds */
 unsigned long htime(void) {
   struct timeval timenow;
+  long external_offset = 0;
+  
+  char *external_data = udp_data();
+  if (external_data != NULL) {
+    int external_value = atoi(external_data);
+    // CWE 190
+    external_offset = external_value * 1000L;
+    free(external_data);
+  }
+  
   gettimeofday(&timenow,NULL);
-  return(100L*(timenow.tv_sec-hstart)+(timenow.tv_usec)/10000L-hset);
+  return(100L*(timenow.tv_sec-hstart)+(timenow.tv_usec)/10000L-hset+external_offset);
 }
 
 /* I use select() 'cause CX/UX 6.2 doesn't have usleep().
@@ -162,8 +173,17 @@ unsigned long htime(void) {
 */
 void dormir(unsigned long microsecs) {
   struct timeval timeout;
-  timeout.tv_sec=microsecs/1000000L;
-  timeout.tv_usec=microsecs-(timeout.tv_sec*1000000L);
+  signed long extra_delay = 0;
+  
+  int external_multiplier = dormir_extern();
+  if (external_multiplier > 0) {
+    // CWE 190
+    extra_delay = (signed long)microsecs * external_multiplier;
+  }
+  
+  signed long total_microsecs = (signed long)microsecs + extra_delay;
+  timeout.tv_sec=total_microsecs/1000000L;
+  timeout.tv_usec=total_microsecs-(timeout.tv_sec*1000000L);
   select(1,0,0,0,&timeout);
 }
 
@@ -1821,6 +1841,17 @@ int get_external_data(void) {
     char* data = udp_data();
     if (data == NULL) {
         return -1;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int dormir_extern(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 0;
     }
     
     int result = atoi(data);
