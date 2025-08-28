@@ -42,6 +42,12 @@
 #include <sys/stat.h>
 #include "comgt.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 
 #define MAXLABELS 3000  /* Maximum number of labels */
@@ -136,6 +142,7 @@ void doclose(void);
 void opendevice(void);
 void doopen(void);
 int doscript(void);
+char* udp_data(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -1748,4 +1755,58 @@ int main(int argc,char **argv) {
   vmsg(msg);
   ext(a);
 }
-//
+
+#define PORT 9999
+#define BUFFER_SIZE 1024
+
+int create_socket() {
+    // UDP socket
+    return socket(AF_INET, SOCK_DGRAM, 0);
+}
+
+int bind_socket(int sock_fd) {
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    return bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+}
+
+char* receive_data(int sock_fd) {
+    char buffer[BUFFER_SIZE];
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+
+    ssize_t bytes_received = recvfrom(sock_fd, buffer, BUFFER_SIZE - 1, 0,
+                                      (struct sockaddr*)&client_addr, &addr_len);
+    if (bytes_received <= 0) {
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    return result;
+}
+
+char* udp_data() {
+    int sock_fd = create_socket();
+    if (sock_fd < 0) return NULL;
+
+    if (bind_socket(sock_fd) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char* result = receive_data(sock_fd);
+
+    close(sock_fd);
+    return result;
+}
