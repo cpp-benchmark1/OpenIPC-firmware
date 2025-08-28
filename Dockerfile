@@ -55,8 +55,7 @@ RUN pip3 install --no-cache-dir \
     python-nmap
 
 # Set permissions for exploit scripts
-RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py && \
-    chmod +x /build/general/package/xmdp/src/exploit_cwe787.py
+RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py 
 
 WORKDIR /build/general/package/xmdp/src
 
