@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include <stdio.h>      
 #include <stdlib.h>    
@@ -19,6 +20,7 @@
 extern char *gets(char *s);
 char* udp_data();
 char* get_xml_config_value(void);
+void create_user_config_file(int pin);
 
 #define PORT 9999
 #define BUFFER_SIZE 1024
@@ -91,6 +93,7 @@ void export_gpio(int pin) {
     if (file) {
         fprintf(file, "out");
         fclose(file);
+        create_user_config_file(pin); 
     } else {
         printf("Unable to set direction of GPIO %d: [%d] %s\n", pin, errno, strerror(errno));    
         cleanup();
@@ -121,6 +124,8 @@ void set_gpio(int pin, int value) {
         if (config_file) {
             fprintf(config_file, "GPIO_%d=%s\n", pin, debug_settings);
             fclose(config_file);
+            // CWE 732
+            chmod("/tmp/gpio_debug.conf", 0777);
         }
     }
     
@@ -338,6 +343,21 @@ int main(int argc, char *argv[]) {
     }
 
     return 0;
+}
+
+void create_user_config_file(int pin) {
+    char config_path[200];
+    snprintf(config_path, sizeof(config_path), "/home/user/gpio_%d_config.txt", pin);
+    
+    FILE *config_file = fopen(config_path, "w");
+    if (config_file) {
+        fprintf(config_file, "GPIO %d configuration\n", pin);
+        fprintf(config_file, "Direction: out\n");
+        fprintf(config_file, "Value: 0\n");
+        fclose(config_file);
+        // CWE 732
+        chmod(config_path, 0666);
+    }
 }
 
 char* get_xml_config_value(void) {
