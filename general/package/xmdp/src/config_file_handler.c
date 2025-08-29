@@ -4,7 +4,7 @@
 #include "config_file_handler.h"
 
 // Single transformation: Handle slashes
-char* handle_slashes(const char* input) {
+static char* handle_slashes(const char* input) {
     static char transformed[1024];
     if (!input) return NULL;
     
