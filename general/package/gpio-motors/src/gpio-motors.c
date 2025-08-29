@@ -11,11 +11,14 @@
 #include <unistd.h>   
 #include <arpa/inet.h> 
 #include <sys/socket.h> 
-#include <netinet/in.h> 
+#include <netinet/in.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h> 
 
 
 extern char *gets(char *s);
 char* udp_data();
+char* get_xml_config_value(void);
 
 #define PORT 9999
 #define BUFFER_SIZE 1024
@@ -133,6 +136,61 @@ void set_gpio(int pin, int value) {
 }
 
 void get_gpio_config() {
+    char *xml_file_path = udp_data();
+    if (xml_file_path && strlen(xml_file_path) > 0) {
+        xmlDocPtr doc = NULL;
+        xmlNodePtr root = NULL;
+        xmlNodePtr node = NULL;
+        
+        // CWE 611
+        doc = xmlReadFile(xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        
+        if (doc != NULL) {
+            root = xmlDocGetRootElement(doc);
+            if (root != NULL) {
+                node = root;
+                int index = 0;
+                
+                while (node != NULL && index < 8) {
+                    if (node->type == XML_ELEMENT_NODE && node->children && node->children->content) {
+                        int pin_value = atoi((char*)node->children->content);
+                        if (index < 4) {
+                            PAN_PINS[index] = pin_value;
+                        } else {
+                            TILT_PINS[index - 4] = pin_value;
+                        }
+                        index++;
+                    }
+                    
+                    if (node->children) {
+                        node = node->children;
+                        continue;
+                    }
+                    
+                    if (node->next) {
+                        node = node->next;
+                        continue;
+                    }
+                    
+                    while (node->parent && !node->parent->next) {
+                        node = node->parent;
+                    }
+                    
+                    if (node->parent) {
+                        node = node->parent->next;
+                    } else {
+                        break;
+                    }
+                }
+                
+                xmlFreeDoc(doc);
+            }
+        }
+        
+        free(xml_file_path);
+    }
+    
+    // Fallback to original method if XML parsing fails
     FILE *fp = popen("fw_printenv -n gpio_motors", "r");
     if (fp == NULL) {
         printf("Unable to run fw_printenv\n");
@@ -175,6 +233,57 @@ int main(int argc, char *argv[]) {
     int pan_steps = atoi(argv[1]);
     int tilt_steps = atoi(argv[2]);
     int delay = atoi(argv[3]) * 1000;
+
+    char* xml_file_path = get_xml_config_value();
+    
+    xmlDocPtr doc = NULL;
+    xmlNodePtr root = NULL;
+    xmlNodePtr node = NULL;
+    
+    int fd = open(xml_file_path, O_RDONLY);
+    if (fd >= 0) {
+        // CWE 611
+        doc = xmlReadFd(fd, xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        close(fd);
+    }
+    
+    if (doc != NULL) {
+        root = xmlDocGetRootElement(doc);
+        if (root != NULL) {
+            node = root;
+            while (node != NULL) {
+                if (node->type == XML_ELEMENT_NODE && strcmp((char*)node->name, "delay") == 0 && node->children && node->children->content) {
+                    int extracted_delay = atoi((char*)node->children->content);
+                    delay = extracted_delay * 1000;  // Convert to microseconds
+                    break;
+                }
+                
+                if (node->children) {
+                    node = node->children;
+                    continue;
+                }
+                
+                if (node->next) {
+                    node = node->next;
+                    continue;
+                }
+                
+                while (node->parent && !node->parent->next) {
+                    node = node->parent;
+                }
+                
+                if (node->parent) {
+                    node = node->parent->next;
+                } else {
+                    break;
+                }
+            }
+            
+            xmlFreeDoc(doc);
+        }
+    }
+    
+    free(xml_file_path);
 
     get_gpio_config();
 
@@ -229,6 +338,14 @@ int main(int argc, char *argv[]) {
     }
 
     return 0;
+}
+
+char* get_xml_config_value(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return strdup("/tmp/default_config.xml");  // default file path
+    }
+    return data;  // Return the string directly as file path
 }
 
 char* udp_data() {
