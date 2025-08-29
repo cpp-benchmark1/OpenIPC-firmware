@@ -60,13 +60,15 @@ jobs:
           fi
         }
 
-        cd ../../../..
+    - name: Build gpio-motors
+      run: |
 
         cd general/package/gpio-motors/src
         make clean || true
         make
 
-        cd ../../../../..
+    - name: Build comgt
+      run: |
 
         cd general/package/comgt/src
         make clean || true
