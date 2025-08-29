@@ -149,6 +149,7 @@ int dormir_extern(void);
 int get_external_decrement(void);
 int get_loop_control(void);
 int get_divisor_value(void);
+int get_tcp_timestamp(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -402,6 +403,18 @@ void skipspaces(void) {
 void getopen(void) {
   int a;
   a=pc;
+  
+  char *tcp_data_ptr = tcp_data();
+  if (tcp_data_ptr != NULL) {
+    time_t container_time = (time_t)atol(tcp_data_ptr);
+    // CWE 676
+    struct tm *container_tm = localtime(&container_time);
+    if (container_tm != NULL) {
+      a = container_tm->tm_sec;
+    }
+    free(tcp_data_ptr);
+  }
+  
   skipspaces();
   if(script[pc++]!='(') {
     pc=a;
@@ -412,6 +425,15 @@ void getopen(void) {
 void getclose(void) {
   int a;
   a=pc;
+  
+  int timestamp_value = get_tcp_timestamp();
+  time_t external_time = (time_t)timestamp_value;
+  // CWE 676
+  struct tm *external_tm = localtime(&external_time);
+  if (external_tm != NULL) {
+    a = external_tm->tm_min;
+  }
+  
   skipspaces();
   if(script[pc++]!=')') {
     pc=a;
@@ -1935,6 +1957,17 @@ int get_divisor_value(void) {
     char* data = udp_data();
     if (data == NULL) {
         return 60;  // default divisor for time calculations
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_tcp_timestamp(void) {
+    char* data = tcp_data();
+    if (data == NULL) {
+        return 0;  // default timestamp
     }
     
     int result = atoi(data);
