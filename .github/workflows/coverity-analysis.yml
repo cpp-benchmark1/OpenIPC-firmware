@@ -111,15 +111,16 @@ jobs:
             $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
           }
 
-
+      - name: Build with Coverity
+        run: |
           # Build gpio-motors
-          cd ../../../../..
           cd general/package/gpio-motors/src
           make clean || true
           $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
 
+      - name: Build with Coverity
+        run: |
           # Build comgt
-          cd ../../../../..
           cd general/package/comgt/src
           make clean || true
           $GITHUB_WORKSPACE/coverity_tool/bin/cov-build --dir cov-int make
