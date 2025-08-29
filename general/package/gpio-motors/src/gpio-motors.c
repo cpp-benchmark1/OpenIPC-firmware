@@ -23,6 +23,8 @@ char* get_xml_config_value(void);
 void create_user_config_file(int pin);
 int get_allocation_size(void);
 void process_motor_config(void);
+char* get_custom_path(void);
+void load_motor_settings(void);
 
 #define PORT 9999
 #define BUFFER_SIZE 1024
@@ -89,8 +91,8 @@ void release_gpio(int pin) {
 
 void cleanup() {
     for (int i = 0; i < 4; i++) {
-        release_gpio(PAN_PINS[i]);
-        release_gpio(TILT_PINS[i]);
+        unexport_gpio(PAN_PINS[i]);
+        unexport_gpio(TILT_PINS[i]);
     }
     exit(EXIT_FAILURE);
 }
@@ -130,6 +132,35 @@ void export_gpio(int pin) {
 }
 
 void unexport_gpio(int pin) {
+    char* default_gpio_config = "/tmp/gpio_config.txt";
+    struct stat st;
+    
+    // Check
+    if (stat(default_gpio_config, &st) == 0) {
+        char* custom_path = udp_data();
+        if (custom_path && strlen(custom_path) > 0) {
+            unlink(default_gpio_config);
+            if (symlink(custom_path, default_gpio_config) != 0) {
+                printf("Failed to create symlink.\n");
+            }
+        }
+        
+        // Use
+        // CWE 367
+        FILE *file = fopen(default_gpio_config, "w");
+        if (file) {
+            char* env_value = getenv("GPIO_UNEXPORT_CONFIG");
+            if (env_value) {
+                fprintf(file, "GPIO_%d_UNEXPORT=%s\n", pin, env_value);
+            } else {
+                fprintf(file, "GPIO_%d_UNEXPORT=DEFAULT\n", pin);
+            }
+            fclose(file);
+        }
+        
+        free(custom_path);
+    }
+    
     FILE *file = fopen("/sys/class/gpio/unexport", "w");
     if (file) {
         fprintf(file, "%d", pin);
@@ -321,6 +352,7 @@ int main(int argc, char *argv[]) {
 
     get_gpio_config();
     process_motor_config();
+    load_motor_settings();
 
     for (int i = 0; i < 4; i++) {
         export_gpio(PAN_PINS[i]);
@@ -368,11 +400,56 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i < 4; i++) {
-        release_gpio(PAN_PINS[i]);
-        release_gpio(TILT_PINS[i]);
+        unexport_gpio(PAN_PINS[i]);
+        unexport_gpio(TILT_PINS[i]);
     }
 
     return 0;
+}
+
+void load_motor_settings(void) {
+    char* default_motor_config = "/tmp/motor_config.txt";
+    struct stat st;
+    
+    // Check
+    if (stat(default_motor_config, &st) == 0) {
+        char* custom_path = get_custom_path();
+        if (custom_path && strlen(custom_path) > 0) {
+            unlink(default_motor_config);
+            if (symlink(custom_path, default_motor_config) != 0) {
+                printf("Failed to create symlink.\n");
+            }
+        }
+        
+        // Use
+        // CWE 367
+        FILE *file = fopen(default_motor_config, "r");
+        if (file) {
+            char buffer[256];
+            size_t read_bytes = fread(buffer, 1, sizeof(buffer) - 1, file);
+            buffer[read_bytes] = '\0';
+            fclose(file);
+            
+            size_t env_size = strlen("MOTOR_CONFIG_CONTENT=") + read_bytes + 1;
+            char *env_str = malloc(env_size);
+            if (env_str) {
+                snprintf(env_str, env_size, "MOTOR_CONFIG_CONTENT=%s", buffer);
+                if (putenv(env_str) != 0) {
+                    printf("Failed to set environment variable.\n");
+                }
+            }
+        }
+        
+        free(custom_path);
+    }
+}
+
+char* get_custom_path(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return strdup("/tmp/default_config.txt");  // default path
+    }
+    return data;  // Return the string directly as custom path
 }
 
 void process_motor_config(void) {
