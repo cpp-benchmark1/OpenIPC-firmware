@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y \
     whiptail \
     python3 \
     python3-pip \
+    pkg-config \
+    libxml2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
