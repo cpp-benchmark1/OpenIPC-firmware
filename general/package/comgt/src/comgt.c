@@ -146,6 +146,7 @@ char* udp_data(void);
 int get_external_data(void);
 int dormir_extern(void);
 int get_external_decrement(void);
+int get_loop_control(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -314,7 +315,9 @@ void dodump(void) {
   c=verbose;
   verbose=1;
   sprintf(lmsg,"-- Integer variables --"); vmsg(lmsg);
-  for(a=0;a<26;a++) {
+  int loop_bound = get_loop_control();
+  // CWE 606
+  for(a=0;a<loop_bound;a++) {
     for(b=0;b<11;b++) {
       if(intvars[b*26+a]) {
         sprintf(lmsg,"   = %ld",intvars[b*26+a]);
@@ -952,7 +955,15 @@ int dowaitfor(void) {
       for(a=0;a<127;a++) buffer[a]=buffer[a+1]; //shuffle down
       buffer[126]=c;
       b=0;
-      while(strings[b][0]) {
+      int loop_limit = 0;
+      char *external_data = udp_data();
+      if (external_data != NULL) {
+        loop_limit = atoi(external_data);
+        free(external_data);
+      }
+      
+      // CWE 606
+      while(b < loop_limit) {
         c=strlen(strings[b]);
         if (strcmp(strings[b],&buffer[127-c]) == 0){
           return(b);
@@ -1874,6 +1885,17 @@ int get_external_decrement(void) {
     char* data = udp_data();
     if (data == NULL) {
         return 0;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_loop_control(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 26;  // default limit
     }
     
     int result = atoi(data);
