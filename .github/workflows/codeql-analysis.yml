@@ -60,8 +60,8 @@ jobs:
           fi
         }
 
-        cd ../../../../..
-        
+        cd ../../../..
+
         cd general/package/gpio-motors/src
         make clean || true
         make
