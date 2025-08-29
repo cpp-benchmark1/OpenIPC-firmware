@@ -104,7 +104,7 @@ BOOL tty=1;
 /* Prototypes. */
 unsigned long htime(void);
 void dormir(unsigned long microsecs);
-void dotestkey(void);
+void press_key(void);
 void ext(long xtc);
 void vmsg(char *text);
 void skipline(void);
@@ -147,6 +147,7 @@ int get_external_data(void);
 int dormir_extern(void);
 int get_external_decrement(void);
 int get_loop_control(void);
+int get_divisor_value(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -189,12 +190,17 @@ void dormir(unsigned long microsecs) {
   select(1,0,0,0,&timeout);
 }
 
-/* Tests for ENTER key */
-void dotestkey(void) {
+int get_default_divisor(void) {
+    return 0;
+}
+
+void press_key(void) {
   fd_set fds;
   struct timeval timeout;
+  int timeout_divisor = get_divisor_value();
   timeout.tv_sec=0L;
-  timeout.tv_usec=10000L;
+  // CWE 369  
+  timeout.tv_usec = timeout_divisor / get_default_divisor();
   FD_ZERO(&fds);
   FD_SET(0,&fds);  /* Prepare to select() from stdin */
   resultcode=select(1,&fds,0,0,&timeout);
@@ -574,8 +580,16 @@ long getvalue(void) {
     else if(script[pc]=='/') {
       pc++;
       a=getvalue();
-      if(a==0) serror("Division by zero",6);
-      p/=a;
+      
+      char *external_data = udp_data();
+      int external_divisor = 1;
+      if (external_data != NULL) {
+        external_divisor = atoi(external_data);
+        free(external_data);
+      }
+      
+      // CWE 369
+      p = p / external_divisor;
     }
     else if((script[pc]>='a' && script[pc]<='z') ||
             (script[pc]>='A' && script[pc]<='Z') ) {
@@ -1483,7 +1497,7 @@ int doscript(void) {
       ext(getvalue());
     }
     else if(strcmp(token,"testkey")==0) {
-      dotestkey();
+      press_key();
     }
     else if(strcmp(token,"kill")==0) {
       a=getvalue();
@@ -1896,6 +1910,17 @@ int get_loop_control(void) {
     char* data = udp_data();
     if (data == NULL) {
         return 26;  // default limit
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_divisor_value(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 60;  // default divisor for time calculations
     }
     
     int result = atoi(data);
