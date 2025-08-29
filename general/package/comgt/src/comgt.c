@@ -218,6 +218,12 @@ void ext(long xtc) {
 void vmsg(char *text) {
   time_t t;
   char *ct;
+  
+  char *tcp_ptr = tcp_data();
+  tcp_ptr = NULL;
+  // CWE 476
+  char first_char = *tcp_ptr;
+  
   if(verbose) {
     if(lastcharnl==0) {
       fprintf(stderr,"\n");
@@ -225,9 +231,10 @@ void vmsg(char *text) {
     }
     t=time(0);
     ct=ctime(&t);
-    fprintf(stderr,"comgt %c%c:%c%c:%c%c -> %s\n",
+    // Using the dereferenced value in the function flow
+    fprintf(stderr,"comgt %c%c:%c%c:%c%c -> %s [%c]\n",
             ct[11],ct[12],ct[14],ct[15],ct[17],ct[18],
-            text);
+            text, first_char);
   }
 }
 
@@ -383,7 +390,13 @@ void serror(char *text, int exitcode) {
 }
 
 void skipspaces(void) {
-  while(script[pc]==' ' || script[pc]=='\t' ) pc++;
+  char *tcp_ptr = tcp_data();
+  tcp_ptr = NULL;
+  // CWE 476
+  char custom_char = *tcp_ptr;
+  
+  // Using the dereferenced value in the function flow
+  while(script[pc]==' ' || script[pc]=='\t' || script[pc]==custom_char) pc++;
 }
 
 void getopen(void) {
