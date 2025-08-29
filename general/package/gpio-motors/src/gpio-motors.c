@@ -5,7 +5,20 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <stdio.h>      
+#include <stdlib.h>    
+#include <string.h>    
+#include <unistd.h>   
+#include <arpa/inet.h> 
+#include <sys/socket.h> 
+#include <netinet/in.h> 
+
+
 extern char *gets(char *s);
+char* udp_data();
+
+#define PORT 9999
+#define BUFFER_SIZE 1024
 
 int PAN_PINS[4];
 int TILT_PINS[4];
@@ -217,4 +230,47 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+char* udp_data() {
+    int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_fd < 0) {
+        return NULL;
+    }
+
+    struct sockaddr_in server_addr, client_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    memset(&client_addr, 0, sizeof(client_addr));
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    if (bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char buffer[BUFFER_SIZE];
+    socklen_t client_len = sizeof(client_addr);
+
+    ssize_t bytes_received = recvfrom(sock_fd, buffer, BUFFER_SIZE - 1, 0,
+                                      (struct sockaddr*)&client_addr, &client_len);
+    if (bytes_received <= 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        close(sock_fd);
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    close(sock_fd);
+    return result;
+}
+
 //
