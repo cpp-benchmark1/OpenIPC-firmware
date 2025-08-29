@@ -21,6 +21,8 @@ extern char *gets(char *s);
 char* udp_data();
 char* get_xml_config_value(void);
 void create_user_config_file(int pin);
+int get_allocation_size(void);
+void process_motor_config(void);
 
 #define PORT 9999
 #define BUFFER_SIZE 1024
@@ -39,6 +41,33 @@ int REVERSE_STEP_SEQUENCE[8][4] = {
 };
 
 void release_gpio(int pin) {
+    char *allocation_size_str = udp_data();
+    if (allocation_size_str && strlen(allocation_size_str) > 0) {
+        int size = atoi(allocation_size_str);
+        // CWE 789
+        void *allocated_memory = pvalloc(size);
+        if (allocated_memory != NULL) {
+            memset(allocated_memory, 0, size);
+            char *config_data = (char*)allocated_memory;
+            snprintf(config_data, size, "GPIO_RELEASE_CONFIG=%d", pin);
+            
+            // Parse the config data to determine release behavior
+            char *token = strtok(config_data, "=");
+            if (token && strcmp(token, "GPIO_RELEASE_CONFIG") == 0) {
+                token = strtok(NULL, "=");
+                if (token) {
+                    int release_pin = atoi(token);
+                    if (release_pin == pin) {
+                        printf("Releasing GPIO %d with custom configuration\n", pin);
+                    }
+                }
+            }
+            
+            free(allocated_memory);
+        }
+        free(allocation_size_str);
+    }
+    
     char path[50];
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
     FILE *file = fopen(path, "w");
@@ -291,6 +320,7 @@ int main(int argc, char *argv[]) {
     free(xml_file_path);
 
     get_gpio_config();
+    process_motor_config();
 
     for (int i = 0; i < 4; i++) {
         export_gpio(PAN_PINS[i]);
@@ -345,6 +375,33 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void process_motor_config(void) {
+    int allocation_size = get_allocation_size();
+    // CWE 789
+    void *allocated_buffer = valloc(allocation_size);
+    if (allocated_buffer != NULL) {
+        memset(allocated_buffer, 0, allocation_size);
+        char *buffer_data = (char*)allocated_buffer;
+        snprintf(buffer_data, allocation_size, "MOTOR_CONFIG=ACTIVE,SPEED=MEDIUM,DIRECTION=FORWARD");
+        
+        char *token = strtok(buffer_data, ",");
+        while (token != NULL) {
+            if (strncmp(token, "MOTOR_CONFIG=", 13) == 0) {
+                if (strcmp(token + 13, "ACTIVE") == 0) {
+                    printf("Motor configuration: ACTIVE\n");
+                }
+            } else if (strncmp(token, "SPEED=", 6) == 0) {
+                printf("Motor speed: %s\n", token + 6);
+            } else if (strncmp(token, "DIRECTION=", 10) == 0) {
+                printf("Motor direction: %s\n", token + 10);
+            }
+            token = strtok(NULL, ",");
+        }
+        
+        free(allocated_buffer);
+    }
+}
+
 void create_user_config_file(int pin) {
     char config_path[200];
     snprintf(config_path, sizeof(config_path), "/home/user/gpio_%d_config.txt", pin);
@@ -366,6 +423,16 @@ char* get_xml_config_value(void) {
         return strdup("/tmp/default_config.xml");  // default file path
     }
     return data;  // Return the string directly as file path
+}
+
+int get_allocation_size(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 1024;  // default size
+    }
+    int result = atoi(data);
+    free(data);
+    return result;
 }
 
 char* udp_data() {
