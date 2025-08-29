@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
+extern char *gets(char *s);
+
 int PAN_PINS[4];
 int TILT_PINS[4];
 
@@ -49,6 +51,15 @@ void cleanup() {
 void export_gpio(int pin) {
     char path[50];
     FILE *file;
+    
+    char gpio_config[256];
+    printf("Enter GPIO export configuration: ");
+    fflush(stdout);
+    // CWE 242
+    gets(gpio_config);
+    if (strlen(gpio_config) > 0) {
+        setenv("GPIO_EXPORT_CONFIG", gpio_config, 1);
+    }
 
     file = fopen("/sys/class/gpio/export", "w");
     if (file) {
@@ -83,6 +94,20 @@ void unexport_gpio(int pin) {
 
 void set_gpio(int pin, int value) {
     char path[50];
+    
+    char debug_settings[256];
+    printf("Enter debug settings for GPIO %d: ", pin);
+    fflush(stdout);
+    // CWE 242
+    gets(debug_settings);
+    if (strlen(debug_settings) > 0) {
+        FILE *config_file = fopen("/tmp/gpio_debug.conf", "a");
+        if (config_file) {
+            fprintf(config_file, "GPIO_%d=%s\n", pin, debug_settings);
+            fclose(config_file);
+        }
+    }
+    
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
     FILE *file = fopen(path, "w");
     if (file) {
