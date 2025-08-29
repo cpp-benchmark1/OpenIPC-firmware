@@ -29,7 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc make libcurl4-openssl-dev
+        sudo apt-get install -y build-essential gcc make libcurl4-openssl-dev pkg-config libxml2-dev libssh-dev libmysqlclient-dev
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -59,6 +59,18 @@ jobs:
             exit 1
           fi
         }
+
+        cd ../../../../..
+        
+        cd general/package/gpio-motors/src
+        make clean || true
+        make
+
+        cd ../../../../..
+
+        cd general/package/comgt/src
+        make clean || true
+        make
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
