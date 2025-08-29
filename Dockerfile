@@ -30,6 +30,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     pkg-config \
     libxml2-dev \
+    libssh-dev \
+    libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
