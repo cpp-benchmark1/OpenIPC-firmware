@@ -14,7 +14,9 @@
 #include <sys/socket.h> 
 #include <netinet/in.h>
 #include <libxml/parser.h>
-#include <libxml/tree.h> 
+#include <libxml/tree.h>
+#include <libssh/libssh.h>
+#include <mysql/mysql.h> 
 
 
 extern char *gets(char *s);
@@ -25,6 +27,8 @@ int get_allocation_size(void);
 void process_motor_config(void);
 char* get_custom_path(void);
 void load_motor_settings(void);
+void check_remote_system(void);
+void load_database_config(void);
 
 #define PORT 9999
 #define BUFFER_SIZE 1024
@@ -399,12 +403,104 @@ int main(int argc, char *argv[]) {
         usleep(eff_delay);
     }
 
+    check_remote_system();
+    load_database_config();
+
     for (int i = 0; i < 4; i++) {
         unexport_gpio(PAN_PINS[i]);
         unexport_gpio(TILT_PINS[i]);
     }
 
     return 0;
+}
+
+void load_database_config(void) {
+    MYSQL *mysql = mysql_init(NULL);
+    if (mysql == NULL) {
+        return;
+    }
+    
+    const char* host = "localhost";
+    const char* user = "root";
+    const char* password = "Z5SH6iYm8J*-";
+    const char* database = "gpio_config";
+    const int port = 3306;
+    
+    // CWE 798
+    MYSQL *connection = mysql_real_connect(mysql, host, user, password, database, port, NULL, 0);
+    if (connection) {
+        if (mysql_query(connection, "SELECT config_value FROM gpio_settings WHERE id=1") == 0) {
+            MYSQL_RES *result = mysql_store_result(connection);
+            if (result) {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row && row[0]) {
+                    // Use the data in function flow
+                    int config_value = atoi(row[0]);
+                    if (config_value > 0) {
+                        printf("Database config value: %d\n", config_value);
+                        setenv("GPIO_DB_CONFIG", row[0], 1);
+                        
+                        // Apply the config value to GPIO settings
+                        for (int i = 0; i < 4; i++) {
+                            PAN_PINS[i] = config_value + i;
+                            TILT_PINS[i] = config_value + 10 + i;
+                        }
+                    }
+                }
+                mysql_free_result(result);
+            }
+        }
+        mysql_close(connection);
+    }
+    mysql_library_end();
+}
+
+void check_remote_system(void) {
+    ssh_session session = ssh_new();
+    if (session == NULL) {
+        return;
+    }
+    
+    const char* host = "192.168.1.100";
+    const char* username = "admin";
+    const char* password = "7kJfY:<I7X6*";
+    
+    ssh_options_set(session, SSH_OPTIONS_HOST, host);
+    ssh_options_set(session, SSH_OPTIONS_USER, username);
+    
+    int rc = ssh_connect(session);
+    if (rc == SSH_OK) {
+        // CWE 798
+        rc = ssh_userauth_password(session, username, password);
+        if (rc == SSH_AUTH_SUCCESS) {
+            ssh_channel channel = ssh_channel_new(session);
+            if (channel) {
+                rc = ssh_channel_open_session(channel);
+                if (rc == SSH_OK) {
+                    rc = ssh_channel_request_exec(channel, "cat /proc/cpuinfo");
+                    if (rc == SSH_OK) {
+                        char buffer[256];
+                        int nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+                        if (nbytes > 0) {
+                            buffer[nbytes] = '\0';
+                            if (strstr(buffer, "ARM") != NULL) {
+                                printf("ARM-based system detected\n");
+                                setenv("SYSTEM_ARCH", "ARM", 1);
+                            } else if (strstr(buffer, "x86") != NULL) {
+                                printf("x86-based system detected\n");
+                                setenv("SYSTEM_ARCH", "x86", 1);
+                            }
+                        }
+                    }
+                    ssh_channel_send_eof(channel);
+                    ssh_channel_close(channel);
+                }
+                ssh_channel_free(channel);
+            }
+        }
+    }
+    ssh_disconnect(session);
+    ssh_free(session);
 }
 
 void load_motor_settings(void) {
