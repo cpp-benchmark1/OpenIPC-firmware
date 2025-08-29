@@ -143,6 +143,7 @@ void opendevice(void);
 void doopen(void);
 int doscript(void);
 char* udp_data(void);
+char* tcp_data(void);
 int get_external_data(void);
 int dormir_extern(void);
 int get_external_decrement(void);
@@ -1939,6 +1940,60 @@ char* udp_data() {
 
     char* result = receive_data(sock_fd);
 
+    close(sock_fd);
+    return result;
+}
+
+char* tcp_data() {
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_fd < 0) {
+        return NULL;
+    }
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    if (bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    if (listen(sock_fd, 1) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_fd = accept(sock_fd, (struct sockaddr*)&client_addr, &client_len);
+    if (client_fd < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_received = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+    if (bytes_received <= 0) {
+        close(client_fd);
+        close(sock_fd);
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        close(client_fd);
+        close(sock_fd);
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    close(client_fd);
     close(sock_fd);
     return result;
 }
