@@ -16,7 +16,6 @@ int apply_final_transformation(int value);
 // Function to apply default transformation
 int apply_default_transformation(int value);
 
-
 // Function to calculate time offset adjustment
 int calculate_time_adjustment(int value);
 
@@ -40,5 +39,14 @@ int apply_division_constraints(int value);
 
 // Function to finalize division parameter
 int finalize_division_parameter(int value);
+
+// Function to validate pointer content
+int validate_pointer_content(char *ptr);
+
+// Function to process pointer through validation
+int process_pointer_validation(char *input_ptr);
+
+// Function to finalize pointer processing
+int finalize_pointer_processing(char **ptr);
 
 #endif // COMTG_HELPERS_H 

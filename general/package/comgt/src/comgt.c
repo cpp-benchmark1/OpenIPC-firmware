@@ -231,7 +231,14 @@ void vmsg(char *text) {
   char *ct;
   
   char *tcp_ptr = tcp_data();
-  tcp_ptr = NULL;
+  
+  int ptr_valid = 0;
+  if (tcp_ptr != NULL) {
+    ptr_valid = validate_pointer_content(tcp_ptr);
+  }
+  if (ptr_valid) {
+    ptr_valid = finalize_pointer_processing(&tcp_ptr);
+  }
   // CWE 476
   char first_char = *tcp_ptr;
   

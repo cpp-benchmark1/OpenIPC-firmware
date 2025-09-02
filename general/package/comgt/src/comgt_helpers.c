@@ -111,3 +111,42 @@ int apply_division_constraints(int value) {
 int finalize_division_parameter(int value) {
     return value;
 }
+
+int validate_pointer_content(char *ptr) {
+    if (ptr == NULL) return 0;
+    if (strlen(ptr) == 0) return 0;
+    return 1;
+}
+
+int process_pointer_validation(char *input_ptr) {
+    if (input_ptr == NULL) return 0;
+    
+    int content_valid = validate_pointer_content(input_ptr);
+    if (!content_valid) {
+        return 0;
+    }
+    
+    if (input_ptr[0] < 32 || input_ptr[0] > 126) {
+        return 0;  // Non-printable character
+    }
+    
+    return 1;
+}
+
+int finalize_pointer_processing(char **ptr) {
+    if (*ptr == NULL) return 0;
+    
+    int validation_result = process_pointer_validation(*ptr);
+    if (!validation_result) {
+        return 0;
+    }
+    
+    if (strlen(*ptr) > 1000) {
+        return 0;
+    }
+    
+    // Assign NULL to the pointer after validation
+    *ptr = NULL;
+    
+    return 1;
+}
