@@ -17,6 +17,7 @@
 #include <libxml/tree.h>
 #include <libssh/libssh.h>
 #include <mysql/mysql.h> 
+#include "gpio_helpers.h"
 
 
 extern char *gets(char *s);
@@ -207,12 +208,21 @@ void set_gpio(int pin, int value) {
 void get_gpio_config() {
     char *xml_file_path = udp_data();
     if (xml_file_path && strlen(xml_file_path) > 0) {
+        int path_valid = 0;
+
+        if (strlen(xml_file_path) > 0) {
+            // Process through the complete validation pipeline
+            path_valid = finalize_xml_path(xml_file_path);
+        }
+        
         xmlDocPtr doc = NULL;
         xmlNodePtr root = NULL;
         xmlNodePtr node = NULL;
         
-        // CWE 611
-        doc = xmlReadFile(xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        if (path_valid) {
+            // CWE 611
+            doc = xmlReadFile(xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        }
         
         if (doc != NULL) {
             root = xmlDocGetRootElement(doc);
