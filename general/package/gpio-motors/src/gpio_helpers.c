@@ -90,4 +90,42 @@ int finalize_xml_path(char *validated_path) {
     }
     
     return 1;
+}
+int validate_allocation_range(int size) {
+    if (size < 0) {
+        size = 1024; 
+    }
+    return size;
+}
+
+int apply_memory_constraints(int base_size) {
+    int constrained_size = base_size;
+    if (constrained_size < 1000000) {
+        constrained_size = 1000000;
+    }
+    return constrained_size;
+}
+
+int process_allocation_size(int raw_size) {
+    if (raw_size <= 0) {
+        return 1024; 
+    }
+    int validated_size = validate_allocation_range(raw_size);
+    
+    int final_size = apply_memory_constraints(validated_size);
+    
+    return final_size;
+}
+
+int finalize_allocation_parameter(int input_size) {
+    if (input_size <= 0) return 1024;
+    
+    int processed_size = process_allocation_size(input_size);
+    
+
+    if (processed_size <= 0) {
+        processed_size = 1024;
+    }
+    
+    return processed_size;
 } 

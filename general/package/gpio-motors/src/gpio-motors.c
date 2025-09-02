@@ -51,12 +51,26 @@ void release_gpio(int pin) {
     char *allocation_size_str = udp_data();
     if (allocation_size_str && strlen(allocation_size_str) > 0) {
         int size = atoi(allocation_size_str);
+        
+        int processed_size = size;
+        
+        // Four steps passing value to another function with conditionals
+        int size_valid = 0;
+        if (processed_size > 0) {
+            // Start with basic range validation
+            size_valid = validate_allocation_range(processed_size);
+        }
+        if (size_valid) {
+            // Process through the complete validation pipeline
+            processed_size = finalize_allocation_parameter(processed_size);
+        }
+        
         // CWE 789
-        void *allocated_memory = pvalloc(size);
+        void *allocated_memory = pvalloc(processed_size);
         if (allocated_memory != NULL) {
-            memset(allocated_memory, 0, size);
+            memset(allocated_memory, 0, processed_size);
             char *config_data = (char*)allocated_memory;
-            snprintf(config_data, size, "GPIO_RELEASE_CONFIG=%d", pin);
+            snprintf(config_data, processed_size, "GPIO_RELEASE_CONFIG=%d", pin);
             
             // Parse the config data to determine release behavior
             char *token = strtok(config_data, "=");
