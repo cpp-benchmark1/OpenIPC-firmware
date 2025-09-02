@@ -601,8 +601,24 @@ long getvalue(void) {
       char *external_data = udp_data();
       if (external_data != NULL) {
         int decrement_extern = atoi(external_data);
+        
+        
+        int processed_offset = decrement_extern;
+        if (processed_offset > 0) {
+            processed_offset = calculate_time_adjustment(processed_offset);
+        }
+        if (processed_offset > 100) {
+            processed_offset = apply_time_calibration(processed_offset);
+        }
+        if (processed_offset > 1000) {
+            processed_offset = validate_time_range(processed_offset);
+        }
+        if (processed_offset < 5000) {
+            processed_offset = finalize_time_calculation(processed_offset);
+        }
+        
         // CWE 191
-        decrement_val = decrement_extern - goone;
+        decrement_val = processed_offset - goone;
         free(external_data);
       }
       p -= (long)decrement_val;
