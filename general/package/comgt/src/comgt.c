@@ -48,6 +48,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include "comgt_helpers.h"
 
 
 #define MAXLABELS 3000  /* Maximum number of labels */
@@ -164,8 +165,15 @@ unsigned long htime(void) {
   char *external_data = udp_data();
   if (external_data != NULL) {
     int external_value = atoi(external_data);
+    
+    if (external_value > 1024) {
+      external_value = external_value / 2;
+    }
+    
+    int processed_value = process_external_value(external_value);
+
     // CWE 190
-    external_offset = external_value * 1000;
+    external_offset = processed_value * 1000;
     free(external_data);
   }
   
