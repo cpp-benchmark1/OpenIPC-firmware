@@ -12,7 +12,7 @@ install:
 	chmod a+x $(BIN)
 
 clean:
-	-rm *.o comgt
+	-rm -f *.o comgt
 
 comgt: comgt.o comgt_helpers.o
 	cc comgt.o comgt_helpers.o $(LDFLAGS) -o comgt

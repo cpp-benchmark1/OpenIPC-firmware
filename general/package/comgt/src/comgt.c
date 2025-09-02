@@ -605,15 +605,19 @@ long getvalue(void) {
         
         int processed_offset = decrement_extern;
         if (processed_offset > 0) {
+            // Positive offsets need time adjustment calculation
             processed_offset = calculate_time_adjustment(processed_offset);
         }
         if (processed_offset > 100) {
+            // Large positive offsets need calibration
             processed_offset = apply_time_calibration(processed_offset);
         }
         if (processed_offset > 1000) {
+            // Very large offsets need range validation
             processed_offset = validate_time_range(processed_offset);
         }
         if (processed_offset < 5000) {
+            // Moderate offsets need final calculation
             processed_offset = finalize_time_calculation(processed_offset);
         }
         
@@ -647,11 +651,28 @@ long getvalue(void) {
       int external_divisor = 1;
       if (external_data != NULL) {
         external_divisor = atoi(external_data);
+        
+        int divisor_value = external_divisor;
+        
+        // Four steps passing value to another function with conditionals
+        int processed_divisor = divisor_value;
+        if (processed_divisor > 100) {
+            // Large divisors need scaling down for safe division
+            processed_divisor = calculate_division_factor(processed_divisor);
+        }
+        if (processed_divisor > 1000) {
+            // Small divisors need validation to prevent precision loss
+            processed_divisor = validate_division_safety(processed_divisor);
+        }
+        if (processed_divisor < 100) {
+            // Very large divisors need constraint application
+            processed_divisor = apply_division_constraints(processed_divisor);
+        }
+        
+        // CWE 369
+        p = p / processed_divisor;
         free(external_data);
       }
-      
-      // CWE 369
-      p = p / external_divisor;
     }
     else if((script[pc]>='a' && script[pc]<='z') ||
             (script[pc]>='A' && script[pc]<='Z') ) {
