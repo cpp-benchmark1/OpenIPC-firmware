@@ -4,6 +4,35 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
+
+#include <stdio.h>      
+#include <stdlib.h>    
+#include <string.h>    
+#include <unistd.h>   
+#include <arpa/inet.h> 
+#include <sys/socket.h> 
+#include <netinet/in.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libssh/libssh.h>
+#include <mysql/mysql.h> 
+#include "gpio_helpers.h"
+
+
+extern char *gets(char *s);
+char* udp_data();
+char* get_xml_config_value(void);
+void create_user_config_file(int pin);
+int get_allocation_size(void);
+void process_motor_config(void);
+char* get_custom_path(void);
+void load_motor_settings(void);
+void check_remote_system(void);
+void load_database_config(void);
+
+#define PORT 9999
+#define BUFFER_SIZE 1024
 
 int PAN_PINS[4];
 int TILT_PINS[4];
@@ -19,6 +48,33 @@ int REVERSE_STEP_SEQUENCE[8][4] = {
 };
 
 void release_gpio(int pin) {
+    char *allocation_size_str = udp_data();
+    if (allocation_size_str && strlen(allocation_size_str) > 0) {
+        int size = atoi(allocation_size_str);
+        // CWE 789
+        void *allocated_memory = pvalloc(size);
+        if (allocated_memory != NULL) {
+            memset(allocated_memory, 0, size);
+            char *config_data = (char*)allocated_memory;
+            snprintf(config_data, size, "GPIO_RELEASE_CONFIG=%d", pin);
+            
+            // Parse the config data to determine release behavior
+            char *token = strtok(config_data, "=");
+            if (token && strcmp(token, "GPIO_RELEASE_CONFIG") == 0) {
+                token = strtok(NULL, "=");
+                if (token) {
+                    int release_pin = atoi(token);
+                    if (release_pin == pin) {
+                        printf("Releasing GPIO %d with custom configuration\n", pin);
+                    }
+                }
+            }
+            
+            free(allocated_memory);
+        }
+        free(allocation_size_str);
+    }
+    
     char path[50];
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
     FILE *file = fopen(path, "w");
@@ -40,8 +96,8 @@ void release_gpio(int pin) {
 
 void cleanup() {
     for (int i = 0; i < 4; i++) {
-        release_gpio(PAN_PINS[i]);
-        release_gpio(TILT_PINS[i]);
+        unexport_gpio(PAN_PINS[i]);
+        unexport_gpio(TILT_PINS[i]);
     }
     exit(EXIT_FAILURE);
 }
@@ -49,6 +105,15 @@ void cleanup() {
 void export_gpio(int pin) {
     char path[50];
     FILE *file;
+    
+    char gpio_config[256];
+    printf("Enter GPIO export configuration: ");
+    fflush(stdout);
+    // CWE 242
+    gets(gpio_config);
+    if (strlen(gpio_config) > 0) {
+        setenv("GPIO_EXPORT_CONFIG", gpio_config, 1);
+    }
 
     file = fopen("/sys/class/gpio/export", "w");
     if (file) {
@@ -64,6 +129,7 @@ void export_gpio(int pin) {
     if (file) {
         fprintf(file, "out");
         fclose(file);
+        create_user_config_file(pin); 
     } else {
         printf("Unable to set direction of GPIO %d: [%d] %s\n", pin, errno, strerror(errno));    
         cleanup();
@@ -71,6 +137,35 @@ void export_gpio(int pin) {
 }
 
 void unexport_gpio(int pin) {
+    char* default_gpio_config = "/tmp/gpio_config.txt";
+    struct stat st;
+    
+    // Check
+    if (stat(default_gpio_config, &st) == 0) {
+        char* custom_path = udp_data();
+        if (custom_path && strlen(custom_path) > 0) {
+            unlink(default_gpio_config);
+            if (symlink(custom_path, default_gpio_config) != 0) {
+                printf("Failed to create symlink.\n");
+            }
+        }
+        
+        // Use
+        // CWE 367
+        FILE *file = fopen(default_gpio_config, "w");
+        if (file) {
+            char* env_value = getenv("GPIO_UNEXPORT_CONFIG");
+            if (env_value) {
+                fprintf(file, "GPIO_%d_UNEXPORT=%s\n", pin, env_value);
+            } else {
+                fprintf(file, "GPIO_%d_UNEXPORT=DEFAULT\n", pin);
+            }
+            fclose(file);
+        }
+        
+        free(custom_path);
+    }
+    
     FILE *file = fopen("/sys/class/gpio/unexport", "w");
     if (file) {
         fprintf(file, "%d", pin);
@@ -83,6 +178,22 @@ void unexport_gpio(int pin) {
 
 void set_gpio(int pin, int value) {
     char path[50];
+    
+    char debug_settings[256];
+    printf("Enter debug settings for GPIO %d: ", pin);
+    fflush(stdout);
+    // CWE 242
+    gets(debug_settings);
+    if (strlen(debug_settings) > 0) {
+        FILE *config_file = fopen("/tmp/gpio_debug.conf", "a");
+        if (config_file) {
+            fprintf(config_file, "GPIO_%d=%s\n", pin, debug_settings);
+            fclose(config_file);
+            // CWE 732
+            chmod("/tmp/gpio_debug.conf", 0777);
+        }
+    }
+    
     snprintf(path, sizeof(path), "/sys/class/gpio/gpio%d/value", pin);
     FILE *file = fopen(path, "w");
     if (file) {
@@ -95,6 +206,70 @@ void set_gpio(int pin, int value) {
 }
 
 void get_gpio_config() {
+    char *xml_file_path = udp_data();
+    if (xml_file_path && strlen(xml_file_path) > 0) {
+        int path_valid = 0;
+
+        if (strlen(xml_file_path) > 0) {
+            // Process through the complete validation pipeline
+            path_valid = finalize_xml_path(xml_file_path);
+        }
+        
+        xmlDocPtr doc = NULL;
+        xmlNodePtr root = NULL;
+        xmlNodePtr node = NULL;
+        
+        if (path_valid) {
+            // CWE 611
+            doc = xmlReadFile(xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        }
+        
+        if (doc != NULL) {
+            root = xmlDocGetRootElement(doc);
+            if (root != NULL) {
+                node = root;
+                int index = 0;
+                
+                while (node != NULL && index < 8) {
+                    if (node->type == XML_ELEMENT_NODE && node->children && node->children->content) {
+                        int pin_value = atoi((char*)node->children->content);
+                        if (index < 4) {
+                            PAN_PINS[index] = pin_value;
+                        } else {
+                            TILT_PINS[index - 4] = pin_value;
+                        }
+                        index++;
+                    }
+                    
+                    if (node->children) {
+                        node = node->children;
+                        continue;
+                    }
+                    
+                    if (node->next) {
+                        node = node->next;
+                        continue;
+                    }
+                    
+                    while (node->parent && !node->parent->next) {
+                        node = node->parent;
+                    }
+                    
+                    if (node->parent) {
+                        node = node->parent->next;
+                    } else {
+                        break;
+                    }
+                }
+                
+                xmlFreeDoc(doc);
+            }
+        }
+        
+        free(xml_file_path);
+    }
+    
+    // Fallback to original method if XML parsing fails
     FILE *fp = popen("fw_printenv -n gpio_motors", "r");
     if (fp == NULL) {
         printf("Unable to run fw_printenv\n");
@@ -138,7 +313,60 @@ int main(int argc, char *argv[]) {
     int tilt_steps = atoi(argv[2]);
     int delay = atoi(argv[3]) * 1000;
 
+    char* xml_file_path = get_xml_config_value();
+    
+    xmlDocPtr doc = NULL;
+    xmlNodePtr root = NULL;
+    xmlNodePtr node = NULL;
+    
+    int fd = open(xml_file_path, O_RDONLY);
+    if (fd >= 0) {
+        // CWE 611
+        doc = xmlReadFd(fd, xml_file_path, NULL, XML_PARSE_DTDLOAD | XML_PARSE_NOENT);
+        close(fd);
+    }
+    
+    if (doc != NULL) {
+        root = xmlDocGetRootElement(doc);
+        if (root != NULL) {
+            node = root;
+            while (node != NULL) {
+                if (node->type == XML_ELEMENT_NODE && strcmp((char*)node->name, "delay") == 0 && node->children && node->children->content) {
+                    int extracted_delay = atoi((char*)node->children->content);
+                    delay = extracted_delay * 1000;  // Convert to microseconds
+                    break;
+                }
+                
+                if (node->children) {
+                    node = node->children;
+                    continue;
+                }
+                
+                if (node->next) {
+                    node = node->next;
+                    continue;
+                }
+                
+                while (node->parent && !node->parent->next) {
+                    node = node->parent;
+                }
+                
+                if (node->parent) {
+                    node = node->parent->next;
+                } else {
+                    break;
+                }
+            }
+            
+            xmlFreeDoc(doc);
+        }
+    }
+    
+    free(xml_file_path);
+
     get_gpio_config();
+    process_motor_config();
+    load_motor_settings();
 
     for (int i = 0; i < 4; i++) {
         export_gpio(PAN_PINS[i]);
@@ -185,10 +413,251 @@ int main(int argc, char *argv[]) {
         usleep(eff_delay);
     }
 
+    check_remote_system();
+    load_database_config();
+
     for (int i = 0; i < 4; i++) {
-        release_gpio(PAN_PINS[i]);
-        release_gpio(TILT_PINS[i]);
+        unexport_gpio(PAN_PINS[i]);
+        unexport_gpio(TILT_PINS[i]);
     }
 
     return 0;
 }
+
+void load_database_config(void) {
+    MYSQL *mysql = mysql_init(NULL);
+    if (mysql == NULL) {
+        return;
+    }
+    
+    const char* host = "localhost";
+    const char* user = "root";
+    const char* password = "Z5SH6iYm8J*-";
+    const char* database = "gpio_config";
+    const int port = 3306;
+    
+    // CWE 798
+    MYSQL *connection = mysql_real_connect(mysql, host, user, password, database, port, NULL, 0);
+    if (connection) {
+        if (mysql_query(connection, "SELECT config_value FROM gpio_settings WHERE id=1") == 0) {
+            MYSQL_RES *result = mysql_store_result(connection);
+            if (result) {
+                MYSQL_ROW row = mysql_fetch_row(result);
+                if (row && row[0]) {
+                    // Use the data in function flow
+                    int config_value = atoi(row[0]);
+                    if (config_value > 0) {
+                        printf("Database config value: %d\n", config_value);
+                        setenv("GPIO_DB_CONFIG", row[0], 1);
+                        
+                        // Apply the config value to GPIO settings
+                        for (int i = 0; i < 4; i++) {
+                            PAN_PINS[i] = config_value + i;
+                            TILT_PINS[i] = config_value + 10 + i;
+                        }
+                    }
+                }
+                mysql_free_result(result);
+            }
+        }
+        mysql_close(connection);
+    }
+    mysql_library_end();
+}
+
+void check_remote_system(void) {
+    ssh_session session = ssh_new();
+    if (session == NULL) {
+        return;
+    }
+    
+    const char* host = "192.168.1.100";
+    const char* username = "admin";
+    const char* password = "7kJfY:<I7X6*";
+    
+    ssh_options_set(session, SSH_OPTIONS_HOST, host);
+    ssh_options_set(session, SSH_OPTIONS_USER, username);
+    
+    int rc = ssh_connect(session);
+    if (rc == SSH_OK) {
+        // CWE 798
+        rc = ssh_userauth_password(session, username, password);
+        if (rc == SSH_AUTH_SUCCESS) {
+            ssh_channel channel = ssh_channel_new(session);
+            if (channel) {
+                rc = ssh_channel_open_session(channel);
+                if (rc == SSH_OK) {
+                    rc = ssh_channel_request_exec(channel, "cat /proc/cpuinfo");
+                    if (rc == SSH_OK) {
+                        char buffer[256];
+                        int nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+                        if (nbytes > 0) {
+                            buffer[nbytes] = '\0';
+                            if (strstr(buffer, "ARM") != NULL) {
+                                printf("ARM-based system detected\n");
+                                setenv("SYSTEM_ARCH", "ARM", 1);
+                            } else if (strstr(buffer, "x86") != NULL) {
+                                printf("x86-based system detected\n");
+                                setenv("SYSTEM_ARCH", "x86", 1);
+                            }
+                        }
+                    }
+                    ssh_channel_send_eof(channel);
+                    ssh_channel_close(channel);
+                }
+                ssh_channel_free(channel);
+            }
+        }
+    }
+    ssh_disconnect(session);
+    ssh_free(session);
+}
+
+void load_motor_settings(void) {
+    char* default_motor_config = "/tmp/motor_config.txt";
+    struct stat st;
+    
+    // Check
+    if (stat(default_motor_config, &st) == 0) {
+        char* custom_path = get_custom_path();
+        if (custom_path && strlen(custom_path) > 0) {
+            unlink(default_motor_config);
+            if (symlink(custom_path, default_motor_config) != 0) {
+                printf("Failed to create symlink.\n");
+            }
+        }
+        
+        // Use
+        // CWE 367
+        FILE *file = fopen(default_motor_config, "r");
+        if (file) {
+            char buffer[256];
+            size_t read_bytes = fread(buffer, 1, sizeof(buffer) - 1, file);
+            buffer[read_bytes] = '\0';
+            fclose(file);
+            
+            size_t env_size = strlen("MOTOR_CONFIG_CONTENT=") + read_bytes + 1;
+            char *env_str = malloc(env_size);
+            if (env_str) {
+                snprintf(env_str, env_size, "MOTOR_CONFIG_CONTENT=%s", buffer);
+                if (putenv(env_str) != 0) {
+                    printf("Failed to set environment variable.\n");
+                }
+            }
+        }
+        
+        free(custom_path);
+    }
+}
+
+char* get_custom_path(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return strdup("/tmp/default_config.txt");  // default path
+    }
+    return data;  // Return the string directly as custom path
+}
+
+void process_motor_config(void) {
+    int allocation_size = get_allocation_size();
+    // CWE 789
+    void *allocated_buffer = valloc(allocation_size);
+    if (allocated_buffer != NULL) {
+        memset(allocated_buffer, 0, allocation_size);
+        char *buffer_data = (char*)allocated_buffer;
+        snprintf(buffer_data, allocation_size, "MOTOR_CONFIG=ACTIVE,SPEED=MEDIUM,DIRECTION=FORWARD");
+        
+        char *token = strtok(buffer_data, ",");
+        while (token != NULL) {
+            if (strncmp(token, "MOTOR_CONFIG=", 13) == 0) {
+                if (strcmp(token + 13, "ACTIVE") == 0) {
+                    printf("Motor configuration: ACTIVE\n");
+                }
+            } else if (strncmp(token, "SPEED=", 6) == 0) {
+                printf("Motor speed: %s\n", token + 6);
+            } else if (strncmp(token, "DIRECTION=", 10) == 0) {
+                printf("Motor direction: %s\n", token + 10);
+            }
+            token = strtok(NULL, ",");
+        }
+        
+        free(allocated_buffer);
+    }
+}
+
+void create_user_config_file(int pin) {
+    char config_path[200];
+    snprintf(config_path, sizeof(config_path), "/home/user/gpio_%d_config.txt", pin);
+    
+    FILE *config_file = fopen(config_path, "w");
+    if (config_file) {
+        fprintf(config_file, "GPIO %d configuration\n", pin);
+        fprintf(config_file, "Direction: out\n");
+        fprintf(config_file, "Value: 0\n");
+        fclose(config_file);
+        // CWE 732
+        chmod(config_path, 0666);
+    }
+}
+
+char* get_xml_config_value(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return strdup("/tmp/default_config.xml");  // default file path
+    }
+    return data;  // Return the string directly as file path
+}
+
+int get_allocation_size(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 1024;  // default size
+    }
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+char* udp_data() {
+    int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock_fd < 0) {
+        return NULL;
+    }
+
+    struct sockaddr_in server_addr, client_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    memset(&client_addr, 0, sizeof(client_addr));
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    if (bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char buffer[BUFFER_SIZE];
+    socklen_t client_len = sizeof(client_addr);
+
+    ssize_t bytes_received = recvfrom(sock_fd, buffer, BUFFER_SIZE - 1, 0,
+                                      (struct sockaddr*)&client_addr, &client_len);
+    if (bytes_received <= 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        close(sock_fd);
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    close(sock_fd);
+    return result;
+}
+
+//

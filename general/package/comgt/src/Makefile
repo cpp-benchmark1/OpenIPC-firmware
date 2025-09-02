@@ -12,14 +12,16 @@ install:
 	chmod a+x $(BIN)
 
 clean:
-	-rm *.o comgt
+	-rm -f *.o comgt
 
-comgt: comgt.o
-	cc comgt.o $(LDFLAGS) -o comgt
+comgt: comgt.o comgt_helpers.o
+	cc comgt.o comgt_helpers.o $(LDFLAGS) -o comgt
 
-comgt.o: comgt.c comgt.h
-	cc comgt.c $(CFLAGS)
+comgt.o: comgt.c comgt.h comgt_helpers.h
+	cc comgt.c $(CFLAGS) -c
 
-comgt:  comgt.c comgt.h
-	$(CC) $(CFLAGS) -o comgt $< $(LDFLAGS)
+comgt_helpers.o: comgt_helpers.c comgt_helpers.h
+	cc comgt_helpers.c $(CFLAGS) -c
+
+
 

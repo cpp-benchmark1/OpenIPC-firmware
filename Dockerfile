@@ -28,6 +28,10 @@ RUN apt-get update && apt-get install -y \
     whiptail \
     python3 \
     python3-pip \
+    pkg-config \
+    libxml2-dev \
+    libssh-dev \
+    libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -49,14 +53,20 @@ RUN cd /build/general/package/xmdp/src && \
     make && \
     chmod +x xmdp
 
+RUN cd /build/general/package/gpio-motors/src && \
+    make
+
+RUN cd /build/general/package/comgt/src && \
+    make clean && \
+    make
+
 # Install Python dependencies for exploit scripts
 RUN pip3 install --no-cache-dir \
     requests \
     python-nmap
 
 # Set permissions for exploit scripts
-RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py && \
-    chmod +x /build/general/package/xmdp/src/exploit_cwe787.py
+RUN chmod +x /build/general/package/xmdp/src/exploit_cwe134.py 
 
 WORKDIR /build/general/package/xmdp/src
 
