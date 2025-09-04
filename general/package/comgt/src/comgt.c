@@ -42,6 +42,13 @@
 #include <sys/stat.h>
 #include "comgt.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include "comgt_helpers.h"
 
 
 #define MAXLABELS 3000  /* Maximum number of labels */
@@ -98,7 +105,7 @@ BOOL tty=1;
 /* Prototypes. */
 unsigned long htime(void);
 void dormir(unsigned long microsecs);
-void dotestkey(void);
+void press_key(void);
 void ext(long xtc);
 void vmsg(char *text);
 void skipline(void);
@@ -136,6 +143,14 @@ void doclose(void);
 void opendevice(void);
 void doopen(void);
 int doscript(void);
+char* udp_data(void);
+char* tcp_data(void);
+int get_external_data(void);
+int dormir_extern(void);
+int get_external_decrement(void);
+int get_loop_control(void);
+int get_divisor_value(void);
+int get_tcp_timestamp(void);
 
 
 char GTdevice[4][20] = {"/dev/noz2",
@@ -145,8 +160,25 @@ char GTdevice[4][20] = {"/dev/noz2",
 /* Returns hundreds of seconds */
 unsigned long htime(void) {
   struct timeval timenow;
+  int external_offset = 0;
+  
+  char *external_data = udp_data();
+  if (external_data != NULL) {
+    int external_value = atoi(external_data);
+    
+    if (external_value > 1024) {
+      external_value = external_value / 2;
+    }
+    
+    int processed_value = process_external_value(external_value);
+
+    // CWE 190
+    external_offset = processed_value * 1000;
+    free(external_data);
+  }
+  
   gettimeofday(&timenow,NULL);
-  return(100L*(timenow.tv_sec-hstart)+(timenow.tv_usec)/10000L-hset);
+  return(100L*(timenow.tv_sec-hstart)+(timenow.tv_usec)/10000L-hset+(long)external_offset);
 }
 
 /* I use select() 'cause CX/UX 6.2 doesn't have usleep().
@@ -154,17 +186,33 @@ unsigned long htime(void) {
 */
 void dormir(unsigned long microsecs) {
   struct timeval timeout;
-  timeout.tv_sec=microsecs/1000000L;
-  timeout.tv_usec=microsecs-(timeout.tv_sec*1000000L);
+  int extra_delay  = 0;
+  int int_microsecs = 0;
+  
+  int external_multiplier = dormir_extern();
+  if (external_multiplier > 0) {
+    int_microsecs = (int)microsecs;
+    // CWE 190
+    extra_delay = int_microsecs * external_multiplier;
+  }
+  
+  signed long total_microsecs = (signed long)microsecs + (signed long)extra_delay;
+  timeout.tv_sec=total_microsecs/1000000L;
+  timeout.tv_usec=total_microsecs-(timeout.tv_sec*1000000L);
   select(1,0,0,0,&timeout);
 }
 
-/* Tests for ENTER key */
-void dotestkey(void) {
+int get_default_divisor(void) {
+    return 0;
+}
+
+void press_key(void) {
   fd_set fds;
   struct timeval timeout;
+  int timeout_divisor = get_divisor_value();
   timeout.tv_sec=0L;
-  timeout.tv_usec=10000L;
+  // CWE 369  
+  timeout.tv_usec = timeout_divisor / get_default_divisor();
   FD_ZERO(&fds);
   FD_SET(0,&fds);  /* Prepare to select() from stdin */
   resultcode=select(1,&fds,0,0,&timeout);
@@ -181,6 +229,19 @@ void ext(long xtc) {
 void vmsg(char *text) {
   time_t t;
   char *ct;
+  
+  char *tcp_ptr = tcp_data();
+  
+  int ptr_valid = 0;
+  if (tcp_ptr != NULL) {
+    ptr_valid = validate_pointer_content(tcp_ptr);
+  }
+  if (ptr_valid) {
+    ptr_valid = finalize_pointer_processing(&tcp_ptr);
+  }
+  // CWE 476
+  char first_char = *tcp_ptr;
+  
   if(verbose) {
     if(lastcharnl==0) {
       fprintf(stderr,"\n");
@@ -188,9 +249,10 @@ void vmsg(char *text) {
     }
     t=time(0);
     ct=ctime(&t);
-    fprintf(stderr,"comgt %c%c:%c%c:%c%c -> %s\n",
+    // Using the dereferenced value in the function flow
+    fprintf(stderr,"comgt %c%c:%c%c:%c%c -> %s [%c]\n",
             ct[11],ct[12],ct[14],ct[15],ct[17],ct[18],
-            text);
+            text, first_char);
   }
 }
 
@@ -218,10 +280,21 @@ void writecom(char *text) {
   int res;
   unsigned int a;
   char ch;
+  unsigned long delay_multiplier = 1;
+  
+  char *external_data = udp_data();
+  if (external_data != NULL) {
+    int index = atoi(external_data);
+    // CWE 125
+    char device_prefix = GTdevice[index][0]; 
+    delay_multiplier = (device_prefix != '\0') ? (device_prefix % 10) + 1 : 1;
+    free(external_data);
+  }
+  
   for(a=0;a<strlen(text);a++) {
     ch=text[a];
     res=write(comfd,&ch,1);
-    if(senddelay) dormir(senddelay);
+    if(senddelay) dormir(senddelay * delay_multiplier);
     if(res!=1) {
       serror("Could not write to COM device",1);
     }
@@ -235,8 +308,17 @@ int getonebyte(void) {
   char ch;
   comecho = 1;
   struct timeval timeout;
+  long timeout_modifier = 10000;
+  
+  int access_index = get_external_data();
+  if (access_index >= 0) {
+    // CWE 125
+    int gosub_return_value = returns[access_index];
+    timeout_modifier = (gosub_return_value != 0) ? (abs(gosub_return_value) % 50000) + 5000 : 10000;
+  }
+  
   timeout.tv_sec=0L;
-  timeout.tv_usec=10000;
+  timeout.tv_usec=timeout_modifier; 
   FD_ZERO(&rfds);
   FD_SET(comfd, &rfds);
   res=select(comfd+1,&rfds,NULL,NULL,&timeout);
@@ -265,7 +347,9 @@ void dodump(void) {
   c=verbose;
   verbose=1;
   sprintf(lmsg,"-- Integer variables --"); vmsg(lmsg);
-  for(a=0;a<26;a++) {
+  int loop_bound = get_loop_control();
+  // CWE 606
+  for(a=0;a<loop_bound;a++) {
     for(b=0;b<11;b++) {
       if(intvars[b*26+a]) {
         sprintf(lmsg,"   = %ld",intvars[b*26+a]);
@@ -324,12 +408,30 @@ void serror(char *text, int exitcode) {
 }
 
 void skipspaces(void) {
-  while(script[pc]==' ' || script[pc]=='\t' ) pc++;
+  char *tcp_ptr = tcp_data();
+  tcp_ptr = NULL;
+  // CWE 476
+  char custom_char = *tcp_ptr;
+  
+  // Using the dereferenced value in the function flow
+  while(script[pc]==' ' || script[pc]=='\t' || script[pc]==custom_char) pc++;
 }
 
 void getopen(void) {
   int a;
   a=pc;
+  
+  char *tcp_data_ptr = tcp_data();
+  if (tcp_data_ptr != NULL) {
+    time_t container_time = (time_t)atol(tcp_data_ptr);
+    // CWE 676
+    struct tm *container_tm = localtime(&container_time);
+    if (container_tm != NULL) {
+      a = container_tm->tm_sec;
+    }
+    free(tcp_data_ptr);
+  }
+  
   skipspaces();
   if(script[pc++]!='(') {
     pc=a;
@@ -340,6 +442,15 @@ void getopen(void) {
 void getclose(void) {
   int a;
   a=pc;
+  
+  int timestamp_value = get_tcp_timestamp();
+  time_t external_time = (time_t)timestamp_value;
+  // CWE 676
+  struct tm *external_tm = localtime(&external_time);
+  if (external_tm != NULL) {
+    a = external_tm->tm_min;
+  }
+  
   skipspaces();
   if(script[pc++]!=')') {
     pc=a;
@@ -493,7 +604,35 @@ long getvalue(void) {
     }
     else if(script[pc]=='-') {
       pc++;
-      p-=getvalue();
+      int decrement_val = 0;
+      char *external_data = udp_data();
+      if (external_data != NULL) {
+        int decrement_extern = atoi(external_data);
+        
+        
+        int processed_offset = decrement_extern;
+        if (processed_offset > 0) {
+            // Positive offsets need time adjustment calculation
+            processed_offset = calculate_time_adjustment(processed_offset);
+        }
+        if (processed_offset > 100) {
+            // Large positive offsets need calibration
+            processed_offset = apply_time_calibration(processed_offset);
+        }
+        if (processed_offset > 1000) {
+            // Very large offsets need range validation
+            processed_offset = validate_time_range(processed_offset);
+        }
+        if (processed_offset < 5000) {
+            // Moderate offsets need final calculation
+            processed_offset = finalize_time_calculation(processed_offset);
+        }
+        
+        // CWE 191
+        decrement_val = processed_offset - goone;
+        free(external_data);
+      }
+      p -= (long)decrement_val;
     }
     else if(script[pc]=='^') {
       pc++;
@@ -514,8 +653,33 @@ long getvalue(void) {
     else if(script[pc]=='/') {
       pc++;
       a=getvalue();
-      if(a==0) serror("Division by zero",6);
-      p/=a;
+      
+      char *external_data = udp_data();
+      int external_divisor = 1;
+      if (external_data != NULL) {
+        external_divisor = atoi(external_data);
+        
+        int divisor_value = external_divisor;
+        
+        // Four steps passing value to another function with conditionals
+        int processed_divisor = divisor_value;
+        if (processed_divisor > 100) {
+            // Large divisors need scaling down for safe division
+            processed_divisor = calculate_division_factor(processed_divisor);
+        }
+        if (processed_divisor > 1000) {
+            // Small divisors need validation to prevent precision loss
+            processed_divisor = validate_division_safety(processed_divisor);
+        }
+        if (processed_divisor < 100) {
+            // Very large divisors need constraint application
+            processed_divisor = apply_division_constraints(processed_divisor);
+        }
+        
+        // CWE 369
+        p = p / processed_divisor;
+        free(external_data);
+      }
     }
     else if((script[pc]>='a' && script[pc]<='z') ||
             (script[pc]>='A' && script[pc]<='Z') ) {
@@ -618,11 +782,14 @@ void getstring(void) {
       }
       else if(strcmp(token,"hms")==0) {
         long sec,min,hour;
+        int external_reduction = get_external_decrement();
         sec=getvalue();
         min=sec/60L;
-        sec-=min*60L;
+        // CWE 191
+        int int_sec = external_reduction - 60;
+        sec = (long)int_sec;
         hour=min/60L;
-        min-=hour*60L;
+        min -= hour*60L;
         sprintf(string,"%s%02ld:%02ld:%02ld",string,hour,min,sec);
       }
       else if(strcmp(token,"dev")==0) {
@@ -893,7 +1060,15 @@ int dowaitfor(void) {
       for(a=0;a<127;a++) buffer[a]=buffer[a+1]; //shuffle down
       buffer[126]=c;
       b=0;
-      while(strings[b][0]) {
+      int loop_limit = 0;
+      char *external_data = udp_data();
+      if (external_data != NULL) {
+        loop_limit = atoi(external_data);
+        free(external_data);
+      }
+      
+      // CWE 606
+      while(b < loop_limit) {
         c=strlen(strings[b]);
         if (strcmp(strings[b],&buffer[127-c]) == 0){
           return(b);
@@ -1413,7 +1588,7 @@ int doscript(void) {
       ext(getvalue());
     }
     else if(strcmp(token,"testkey")==0) {
-      dotestkey();
+      press_key();
     }
     else if(strcmp(token,"kill")==0) {
       a=getvalue();
@@ -1747,4 +1922,179 @@ int main(int argc,char **argv) {
   sprintf(msg,"Exit with code %d.\n",a);
   vmsg(msg);
   ext(a);
+}
+
+#define PORT 9999
+#define BUFFER_SIZE 1024
+
+int create_socket() {
+    // UDP socket
+    return socket(AF_INET, SOCK_DGRAM, 0);
+}
+
+int bind_socket(int sock_fd) {
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    return bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+}
+
+char* receive_data(int sock_fd) {
+    char buffer[BUFFER_SIZE];
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+
+    ssize_t bytes_received = recvfrom(sock_fd, buffer, BUFFER_SIZE - 1, 0,
+                                      (struct sockaddr*)&client_addr, &addr_len);
+    if (bytes_received <= 0) {
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    return result;
+}
+
+int get_external_data(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return -1;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int dormir_extern(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 0;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_external_decrement(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 0;
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_loop_control(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 26;  // default limit
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_divisor_value(void) {
+    char* data = udp_data();
+    if (data == NULL) {
+        return 60;  // default divisor for time calculations
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+int get_tcp_timestamp(void) {
+    char* data = tcp_data();
+    if (data == NULL) {
+        return 0;  // default timestamp
+    }
+    
+    int result = atoi(data);
+    free(data);
+    return result;
+}
+
+char* udp_data() {
+    int sock_fd = create_socket();
+    if (sock_fd < 0) return NULL;
+
+    if (bind_socket(sock_fd) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char* result = receive_data(sock_fd);
+
+    close(sock_fd);
+    return result;
+}
+
+char* tcp_data() {
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_fd < 0) {
+        return NULL;
+    }
+
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(PORT);
+
+    if (bind(sock_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    if (listen(sock_fd, 1) < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_fd = accept(sock_fd, (struct sockaddr*)&client_addr, &client_len);
+    if (client_fd < 0) {
+        close(sock_fd);
+        return NULL;
+    }
+
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_received = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
+    if (bytes_received <= 0) {
+        close(client_fd);
+        close(sock_fd);
+        return NULL;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    char* result = (char*)malloc(bytes_received + 1);
+    if (!result) {
+        close(client_fd);
+        close(sock_fd);
+        return NULL;
+    }
+    strcpy(result, buffer);
+
+    close(client_fd);
+    close(sock_fd);
+    return result;
 }
