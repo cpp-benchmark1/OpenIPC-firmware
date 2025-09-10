@@ -47,7 +47,7 @@ int apply_default_transformation(int value) {
 
 // Function to calculate time offset adjustment
 int calculate_time_adjustment(int value) {
-    if (value > 500) {
+    if (value > 500 && value < 10000) {
         value = value - 100;  // Real transformation
     }
     return value;
@@ -64,7 +64,7 @@ int apply_time_calibration(int value) {
 
 // Function to validate time range (only real transformation)
 int validate_time_range(int value) {
-    if (value > 3600) {  // More than 1 hour
+    if (value > 3600 && value < 7200) {  // More than 1 hour and less than 2 hours
         value = value / 2;  // Real transformation
     }
     return value;
@@ -72,7 +72,7 @@ int validate_time_range(int value) {
 
 // Function to finalize time calculation
 int finalize_time_calculation(int value) {
-    if (value > 10000) {
+    if (value > 10000 && value < 20000) {
         int target = value - 1000;
         while (value > target) {
             value--;
