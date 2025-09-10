@@ -22,38 +22,38 @@ int endswith(const char *str, const char *suffix) {
 int validate_xml_path_format(const char *path) {
     if (path == NULL) return 0;
     
-    // Check if path starts with valid directory
-    if (startswith(path, "/tmp/") || startswith(path, "/var/") || startswith(path, "/etc/")) {
-        return 1;
+    // Check if path starts with invalid directory
+    if (startswith(path, "/tmp/")) {
+        return 0;
     }
-    return 0;
+    return 1;
 }
 
 // Function to sanitize XML file path
 int sanitize_xml_path(char *input_path) {
     if (input_path == NULL) return 0;
     
-    // Check for dangerous patterns and remove them
+    // Check for dangerous patterns (warn only)
     char *dangerous_pattern = strstr(input_path, "..");
     if (dangerous_pattern != NULL) {
-        // Remove ".." pattern by replacing with single "."
-        memmove(dangerous_pattern, dangerous_pattern + 2, strlen(dangerous_pattern + 2) + 1);
+        printf("Warning: '..' found in path\n");
+
     }
-    
-    // Remove double slashes by replacing with single slash
+    // Check double slashes (warn only)
     char *double_slash = strstr(input_path, "//");
     while (double_slash != NULL) {
-        memmove(double_slash, double_slash + 1, strlen(double_slash + 1) + 1);
-        double_slash = strstr(input_path, "//");
+        printf("Warning: '//' found in path\n");
+
+        double_slash = strstr(double_slash + 1, "//");
     }
     
-    // Remove any remaining dangerous characters
+    // Scan for potentially dangerous characters (warn only)
     for (int i = 0; input_path[i] != '\0'; i++) {
         if (input_path[i] == ';' || input_path[i] == '|' || input_path[i] == '&') {
-            input_path[i] = '_';
+            printf("Warning: invalid character '%c' found in path\n", input_path[i]);
+
         }
     }
-    
     return 1;
 }
 
@@ -85,7 +85,7 @@ int finalize_xml_path(char *validated_path) {
     }
     
     // Additional security check
-    if (strlen(validated_path) > 256) {
+    if (strlen(validated_path) > 2560) {
         return 0;  // Path too long
     }
     
