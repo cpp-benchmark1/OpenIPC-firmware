@@ -55,8 +55,8 @@ int calculate_time_adjustment(int value) {
 
 // Function to apply time calibration
 int apply_time_calibration(int value) {
-    int new_time = 0;
-    if (value < 2000) {
+    int new_time = value;
+    if (value > 2000 && value < 5000) {
         new_time = value + 50;
     }
     return new_time;
