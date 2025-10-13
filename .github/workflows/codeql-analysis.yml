@@ -49,8 +49,9 @@ jobs:
     - name: Build gpio-motors
       run: |
         cd general/package/gpio-motors/src
-        make clean
+        make clean || true
         make
+
 
     - name: Build comgt
       run: |
