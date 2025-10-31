@@ -39,25 +39,13 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ github.event.inputs.languages }}
+        build-mode: manual
 
-    - name: Build XMDP
+    - name: Build all components
       run: |
-        cd general/package/xmdp/src
-        make clean
-        CFLAGS="-Wall -Wpedantic -Wno-format-security -Wno-format-truncation" make
-
-    - name: Build gpio-motors
-      run: |
-        cd general/package/gpio-motors/src
-        make clean || true
-        make
-
-
-    - name: Build comgt
-      run: |
-        cd general/package/comgt/src
-        make clean
-        make
+        cd general/package/xmdp/src && make clean && make
+        cd ../../gpio-motors/src && make clean || true && make
+        cd ../../comgt/src && make clean && make
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
