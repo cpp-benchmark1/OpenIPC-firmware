@@ -38,7 +38,7 @@ jobs:
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
-        languages: ${{ github.event.inputs.languages }}
+        languages: c-cpp
         build-mode: manual
 
     - name: Build all components
@@ -50,4 +50,4 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
       with:
-        category: "/language:${{ github.event.inputs.languages }}"
+        category: "/language:c-cpp"
